@@ -197,45 +197,35 @@ function parseGmlParts(xml) {
   return out;
 }
 await step('catastro', async () => {
+  // Partes de edificio (con número de plantas) por teselas de 1 km. Reanudable: guarda
+  // qué teselas están hechas, así una nueva ejecución continúa donde se quedó.
   const tiles = corridorTiles(0);
-  const parts = [], buildings = [];
-  let ok = 0, fail = 0, errors = {}, sample = null;
-  const base = 'https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx?service=wfs&version=2.0.0&request=GetFeature&srsname=EPSG::25830';
-  // Variantes de consulta por recuadro; nos quedamos con la primera que funcione
-  const V = {
-    parts: ['&typenames=BU:BUILDINGPART', '&typenames=bu-ext2d:BuildingPart', '&STOREDQUERY_ID=GetBuildingPartByBBox', '&STOREDQUERIE_ID=GETBUILDINGPARTBYBBOX'],
-    buildings: ['&typenames=BU:BUILDING', '&typenames=bu-core2d:Building', '&STOREDQUERY_ID=GetBuildingByBBox', '&STOREDQUERIE_ID=GETBUILDINGBYBBOX']
-  };
-  const chosen = {}, deadline = Date.now() + 6 * 60 * 1000; // presupuesto: 6 minutos
+  const fParts = path.join(OUT, 'catastro-partes.json'), fDone = path.join(OUT, 'catastro-teselas.json');
+  const parts = new Map((fs.existsSync(fParts) ? JSON.parse(fs.readFileSync(fParts, 'utf8')) : []).map((p) => [p.id, p]));
+  const done = new Set(fs.existsSync(fDone) ? JSON.parse(fs.readFileSync(fDone, 'utf8')) : []);
+  const base = 'https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx?service=wfs&version=2.0.0&request=GetFeature&srsname=EPSG::25830&typenames=BU:BUILDINGPART';
+  const deadline = Date.now() + (+process.env.CATASTRO_MIN || 25) * 60 * 1000;
+  let ok = 0, fail = 0, lastErr = null;
+  const save = () => { fs.writeFileSync(fParts, JSON.stringify([...parts.values()])); fs.writeFileSync(fDone, JSON.stringify([...done])); };
   for (const t of tiles) {
-    if (Date.now() > deadline) { errors.presupuesto = 'tiempo agotado'; break; }
-    if (fail >= 2 && !ok) break;
+    if (done.has(t)) continue;
+    if (Date.now() > deadline) break;
     const [ti, tj] = t.split('_').map(Number), E0 = ti * 1000, N0 = tj * 1000;
-    for (const [kind, list] of [['parts', parts], ['buildings', buildings]]) {
-      const tries = chosen[kind] ? [chosen[kind]] : V[kind];
-      let got = null;
-      for (const v of tries) {
-        for (const bb of [`${E0},${N0},${E0 + 1000},${N0 + 1000}`, `${N0},${E0},${N0 + 1000},${E0 + 1000}`]) {
-          try {
-            const xml = await (await get(`${base}${v}&bbox=${bb}`, { timeoutMs: 30000 }, 1)).text();
-            if (!sample || (sample.length < 3000 && /posList/.test(xml))) sample = xml.slice(0, 6000);
-            const g = parseGmlParts(xml);
-            if (g.length) { got = g; chosen[kind] = v; break; }
-            errors[v] = errors[v] || xml.slice(0, 300);
-          } catch (e) { errors[v] = errors[v] || String(e).slice(0, 300); }
-          await sleep(250);
-        }
-        if (got) break;
-      }
-      if (got) { ok++; list.push(...got); } else fail++;
-      if (fail >= 2 && !ok) break; // el servicio no acepta ninguna variante: no insistir
+    // 4 consultas de 500 m (las de 1 km tardan demasiado en zonas densas)
+    let tileOk = true;
+    for (const [dx, dy] of [[0, 0], [500, 0], [0, 500], [500, 500]]) {
+      try {
+        const xml = await (await get(`${base}&bbox=${E0 + dx},${N0 + dy},${E0 + dx + 500},${N0 + dy + 500}`, { timeoutMs: 90000 }, 2)).text();
+        if (/ExceptionReport/.test(xml)) { tileOk = false; lastErr = xml.slice(0, 300); continue; }
+        parseGmlParts(xml).forEach((p) => parts.set(p.id, p));
+      } catch (e) { tileOk = false; lastErr = String(e).slice(0, 300); }
+      await sleep(200);
     }
+    if (tileOk) { done.add(t); ok++; } else fail++;
+    save();
   }
-  const uniq = (l) => [...new Map(l.map((p) => [p.id, p])).values()];
-  fs.writeFileSync(path.join(OUT, 'catastro-partes.json'), JSON.stringify(uniq(parts)));
-  fs.writeFileSync(path.join(OUT, 'catastro-edificios.json'), JSON.stringify(uniq(buildings).map((b) => ({ id: b.id, u: b.u, f: b.f, r: b.r }))));
-  if (sample) fs.writeFileSync(path.join(OUT, 'catastro-muestra.xml'), sample);
-  return { teselas: tiles.length, ok, fail, consultas: chosen, partes: uniq(parts).length, edificios: uniq(buildings).length, errors };
+  save();
+  return { teselas: tiles.length, hechas: done.size, ok, fail, partes: parts.size, lastErr };
 });
 
 /* ---------- 5. Horarios: GTFS de Renfe Cercanías ---------- */

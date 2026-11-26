@@ -154,22 +154,28 @@ await step('pnoa', async () => {
 
 /* ---------- 4b. Edificios de OpenStreetMap (respaldo; en España muchos vienen del Catastro) ---------- */
 await step('osmedificios', async () => {
-  // Por teselas de 1 km del corredor (consultas pequeñas, no bloquean Overpass)
-  const { fromUTM } = await import('./geo.mjs');
-  const tiles = corridorTiles(0), seen = new Map();
-  let fail = 0;
-  for (const t of tiles) {
-    const [ti, tj] = t.split('_').map(Number);
-    const [s1, w1] = fromUTM(ti * 1000, tj * 1000), [n1, e1] = fromUTM(ti * 1000 + 1000, tj * 1000 + 1000);
-    try {
-      const j = await overpass(`[out:json][timeout:90];way["building"](${s1.toFixed(6)},${w1.toFixed(6)},${n1.toFixed(6)},${e1.toFixed(6)});out body geom qt;`);
-      j.elements.forEach((e) => { if (e.type === 'way' && e.geometry && !seen.has(e.id)) seen.set(e.id, { id: e.id, t: { b: e.tags.building, l: e.tags['building:levels'], h: e.tags.height, n: e.tags.name }, g: e.geometry.map((p) => [+p.lat.toFixed(7), +p.lon.toFixed(7)]) }); });
-    } catch (e) { fail++; console.warn('  edificios', t, String(e).slice(0, 200)); }
-    await sleep(1500);
+  // Extracto de Andalucía de Geofabrik + osmium (Overpass no aguanta tantas consultas de edificios)
+  const tmp = fs.mkdtempSync('/tmp/osm-');
+  const pbf = path.join(tmp, 'andalucia.osm.pbf');
+  execFileSync('curl', ['-sSL', '--max-time', '900', '-A', UA, '-o', pbf, 'https://download.geofabrik.de/europe/spain/andalucia-latest.osm.pbf']);
+  const box = `${BBOX.w},${BBOX.s},${BBOX.e},${BBOX.n}`;
+  execFileSync('osmium', ['extract', '-b', box, pbf, '-o', path.join(tmp, 'box.pbf'), '--overwrite']);
+  execFileSync('osmium', ['tags-filter', path.join(tmp, 'box.pbf'), 'w/building', '-o', path.join(tmp, 'b.pbf'), '--overwrite']);
+  execFileSync('osmium', ['export', path.join(tmp, 'b.pbf'), '-f', 'geojsonseq', '-o', path.join(tmp, 'b.geojsonseq'), '--overwrite', '--geometry-types=polygon']);
+  // Sólo los cercanos a las vías principales (≤ 700 m)
+  const keep = new Set(corridorTiles(0));
+  const out = [];
+  for (const line of fs.readFileSync(path.join(tmp, 'b.geojsonseq'), 'utf8').split('\n')) {
+    const l = line.replace(/^\x1e/, '').trim(); if (!l) continue;
+    const f = JSON.parse(l), ring = f.geometry && (f.geometry.type === 'Polygon' ? f.geometry.coordinates[0] : f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates[0][0] : null);
+    if (!ring) continue;
+    const [E, N] = toUTM(ring[0][1], ring[0][0]);
+    if (!keep.has(Math.floor(E / 1000) + '_' + Math.floor(N / 1000))) continue;
+    const t = f.properties || {};
+    out.push({ id: t['@id'] || out.length, t: { b: t.building, l: t['building:levels'], h: t.height, n: t.name }, g: ring.map(([lo, la]) => [+la.toFixed(7), +lo.toFixed(7)]) });
   }
-  const out = [...seen.values()];
   fs.writeFileSync(path.join(OUT, 'osm-edificios.json'), JSON.stringify(out));
-  return { teselas: tiles.length, fail, edificios: out.length, conPlantas: out.filter((b) => b.t.l).length };
+  return { edificios: out.length, conPlantas: out.filter((b) => b.t.l).length };
 });
 
 /* ---------- 4. Catastro INSPIRE: partes de edificio con número de plantas ---------- */

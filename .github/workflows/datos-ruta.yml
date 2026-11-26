@@ -30,6 +30,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Instalar osmium
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
       - name: Instalar herramientas
         working-directory: tools/route
         run: npm ci --no-audit --no-fund

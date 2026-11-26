@@ -117,7 +117,7 @@
   /* ---------- Construcción ---------- */
   function build(W, sim) {
     var line = sim.line, al = W.al, root = W.root, W3m = W3();
-    var R = { line: line, group: new THREE.Group(), tiles: {}, bTiles: {}, M: W.M, lastKey: null, orthoGlow: 0.55 };
+    var R = { line: line, group: new THREE.Group(), tiles: {}, bTiles: {}, M: W.M, lastKey: null, orthoGlow: 0.3 };
     root.add(R.group);
     R.M.buildings = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
     W.buildingMat = R.M.buildings; W.buildingMat.emissiveIntensity = 0;
@@ -208,7 +208,7 @@
   /* Carga/descarga de teselas alrededor del tren (radio en km). */
   function update(W, sim, night, force) {
     var R = W.real; if (!R) return;
-    var glow = 0.55 * (1 - (night || 0));
+    var glow = 0.3 * (1 - (night || 0));
     if (Math.abs(glow - R.orthoGlow) > 0.01) { R.orthoGlow = glow; for (var tk in R.tiles) if (R.tiles[tk].mesh) R.tiles[tk].mesh.material.emissiveIntensity = glow; }
     var F = W3().frame(W.al, sim.train.x), line = R.line;
     var E = F.x + line.origin.E, N = -F.z + line.origin.N;

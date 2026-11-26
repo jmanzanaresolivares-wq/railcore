@@ -1,0 +1,109 @@
+{
+ "longitud_km": 31.313,
+ "estaciones": [
+  [
+   "Sevilla-Santa Justa",
+   0,
+   "derecha",
+   200,
+   "estimado"
+  ],
+  [
+   "San Bernardo",
+   1711,
+   "derecha",
+   200,
+   "estimado"
+  ],
+  [
+   "Virgen del Rocío",
+   3417,
+   "izquierda",
+   250,
+   "andén OSM"
+  ],
+  [
+   "Jardines de Hércules",
+   6897,
+   "izquierda",
+   101,
+   "andén OSM"
+  ],
+  [
+   "Bellavista",
+   8168,
+   "izquierda",
+   160,
+   "andén OSM"
+  ],
+  [
+   "Dos Hermanas",
+   14761,
+   "izquierda",
+   260,
+   "andén OSM"
+  ],
+  [
+   "Utrera",
+   31313,
+   "derecha",
+   118,
+   "andén OSM"
+  ]
+ ],
+ "velocidades": [
+  {
+   "from": -800,
+   "to": 229,
+   "kmh": 80
+  },
+  {
+   "from": 229,
+   "to": 424,
+   "kmh": 120
+  },
+  {
+   "from": 424,
+   "to": 7715,
+   "kmh": 80,
+   "verificar": "sin dato en OSM"
+  },
+  {
+   "from": 7715,
+   "to": 25067,
+   "kmh": 120
+  },
+  {
+   "from": 25067,
+   "to": 27421,
+   "kmh": 80,
+   "verificar": "sin dato en OSM"
+  },
+  {
+   "from": 27421,
+   "to": 32213,
+   "kmh": 120
+  }
+ ],
+ "puentes": 7,
+ "tuneles": [
+  {
+   "from": 0,
+   "to": 229
+  },
+  {
+   "from": 424,
+   "to": 2681
+  }
+ ],
+ "señales": 0,
+ "desvios": 15,
+ "pn": 0,
+ "postesKm": 0,
+ "curvas": 60,
+ "rasantes": 98,
+ "edificios": 51294,
+ "ortofotos": 44,
+ "terreno": 159,
+ "horario": 870
+}

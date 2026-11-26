@@ -54,7 +54,9 @@
     line.stations.forEach(function (st, i) {
       var arr = null, dep = null;
       if (i > 0) {
-        t += runTime(line, line.stations[i - 1].stopX, st.stopX);
+        var prev = line.stations[i - 1], real = line.timetableReal && line.timetableReal.runTimes_s;
+        // Ruta real: tiempo de recorrido del horario publicado (GTFS); si no, el modelo
+        t += (real && real[prev.id + '-' + st.id]) || runTime(line, prev.stopX, st.stopX);
         arr = t;
       }
       if (i < line.stations.length - 1) {
@@ -66,7 +68,19 @@
     return out;
   }
 
+  /* Ruta real: primera salida publicada (día laborable) a partir de la hora pedida. */
+  function realDeparture(line, wanted) {
+    var R = line.timetableReal; if (!R || !R.departures || !R.departures.length) return null;
+    var w = U.parseClock(wanted), best = null;
+    R.departures.forEach(function (d) {
+      var t = U.parseClock(d.dep);
+      if (t >= w - 60 && (!best || t < U.parseClock(best.dep))) best = d;
+    });
+    return best || R.departures[0];
+  }
+
   RC.core.timetable = {
+    realDeparture: realDeparture,
     build: build, runTime: runTime, trackLimitKmh: trackLimitKmh,
     gradeAt: gradeAt, curvatureAt: curvatureAt, nextLimitChange: nextLimitChange
   };

@@ -1,0 +1,14 @@
+{
+ "fecha": "2026-11-26T22:06:28.376Z",
+ "pasos": {
+  "catastro": {
+   "ok": 8,
+   "teselas": 46,
+   "hechas": 46,
+   "fail": 0,
+   "partes": 90364,
+   "lastErr": null,
+   "segundos": 106
+  }
+ }
+}

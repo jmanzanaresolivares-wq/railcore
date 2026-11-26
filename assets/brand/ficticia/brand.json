@@ -1,0 +1,22 @@
+{
+  "nota": "Marcas inventadas para RAILCORE. No imitan ni derivan de ninguna marca real.",
+  "operator": {
+    "name": "Ferronda",
+    "short": "FRD",
+    "service": "Ferronda Cercanías",
+    "colors": { "primary": "#0F6E6A", "accent": "#F2A900", "text": "#FFFFFF" },
+    "logoSvg": "ferronda-logo.svg"
+  },
+  "infra": {
+    "name": "Trazia",
+    "short": "TRZ",
+    "control": "Puesto de Mando Trazia Sevilla",
+    "colors": { "primary": "#2C3E73", "accent": "#F2A900", "text": "#FFFFFF", "light": "#E9EDF5" },
+    "logoSvg": "trazia-logo.svg"
+  },
+  "lines": {
+    "C1": { "color": "#1E88C8", "text": "#FFFFFF", "svg": "linea-c1.svg" }
+  },
+  "livery": { "body": "#F4F5F2", "lower": "#0F6E6A", "stripe": "#F2A900", "windowBand": "#1B2630", "roof": "#B9BEC2" },
+  "signage": { "stationBg": "#2C3E73", "stationFg": "#FFFFFF", "stationAccent": "#F2A900" }
+}

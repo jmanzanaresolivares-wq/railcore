@@ -20,6 +20,10 @@
     if (overrides && overrides.departure) {   // otra hora del día: mismo servicio desplazado
       line = Object.assign({}, line, { firstDeparture: overrides.departure });
     }
+    var realDep = TT.realDeparture && TT.realDeparture(line, line.firstDeparture);
+    if (realDep) {   // ruta real: la salida y el número de tren del horario publicado
+      line = Object.assign({}, line, { firstDeparture: realDep.dep, trainNumber: String(realDep.number) });
+    }
     var tt = TT.build(line, 0, {});
     var ghostTT = TT.build(line, -line.precedingTrain.headway_s, line.precedingTrain.extraDwell);
     var startSt = line.stations[sc.startStation];
@@ -287,7 +291,7 @@
     }
     if (!f.utrera && t.x > 27000) {
       f.utrera = true;
-      radio(sim, 'CTC Sevilla', 'Entrada en Utrera por vía 1, andén a la izquierda. Final de trayecto.');
+      radio(sim, 'CTC Sevilla', 'Entrada en ' + sim.line.stations[sim.line.stations.length - 1].name + ', andén a la ' + sim.line.stations[sim.line.stations.length - 1].side + '. Final de trayecto.');
     }
   }
 

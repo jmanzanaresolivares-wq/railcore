@@ -1,0 +1,50 @@
+name: Descargar datos abiertos de la ruta C-1
+
+# Descarga OpenStreetMap, MDT del IGN, ortofoto PNOA, Catastro y GTFS de Renfe
+# y guarda copias compactas en data/fuentes/c1/ (ver tools/route/README.md).
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Fuentes a descargar (vacío = todas): osm,mdt,pnoa,catastro,gtfs'
+        required: false
+        default: ''
+  push:
+    paths:
+      - 'tools/route/fetch-sources.mjs'
+      - '.github/workflows/datos-ruta.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: datos-ruta-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  descargar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar herramientas
+        working-directory: tools/route
+        run: npm install --no-audit --no-fund
+      - name: Descargar fuentes
+        run: node tools/route/fetch-sources.mjs
+        env:
+          ONLY: ${{ github.event.inputs.only }}
+      - name: Mostrar informe
+        if: always()
+        run: cat data/fuentes/c1/informe-descarga.json || true
+      - name: Guardar en la rama
+        if: always()
+        run: |
+          git config user.name "railcore-datos[bot]"
+          git config user.email "railcore-datos@users.noreply.github.com"
+          git add data/fuentes/c1
+          git commit -m "Datos abiertos de la C-1 descargados por GitHub Actions" || exit 0
+          for i in 1 2 3; do git pull --rebase --no-edit && git push && break; sleep 5; done

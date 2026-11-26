@@ -24,7 +24,7 @@ concurrency:
 jobs:
   descargar:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,7 +32,7 @@ jobs:
           node-version: 22
       - name: Instalar herramientas
         working-directory: tools/route
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Descargar fuentes
         run: node tools/route/fetch-sources.mjs
         env:

@@ -21,7 +21,7 @@ async function get(url, opts = {}, tries = 4) {
   let last;
   for (let i = 0; i < tries; i++) {
     try {
-      const r = await fetch(url, { ...opts, headers: { 'User-Agent': UA, ...(opts.headers || {}) } });
+      const r = await fetch(url, { signal: AbortSignal.timeout(opts.timeoutMs || 120000), ...opts, headers: { 'User-Agent': UA, ...(opts.headers || {}) } });
       if (r.ok) return r;
       last = new Error('HTTP ' + r.status + ' ' + (await r.text()).slice(0, 400));
       if (r.status === 400 || r.status === 404) break;
@@ -181,7 +181,7 @@ await step('catastro', async () => {
   };
   const chosen = {};
   for (const t of tiles) {
-    if (fail >= 6 && !ok) break;
+    if (fail >= 2 && !ok) break;
     const [ti, tj] = t.split('_').map(Number), E0 = ti * 1000, N0 = tj * 1000;
     for (const [kind, list] of [['parts', parts], ['buildings', buildings]]) {
       const tries = chosen[kind] ? [chosen[kind]] : V[kind];
@@ -200,7 +200,7 @@ await step('catastro', async () => {
         if (got) break;
       }
       if (got) { ok++; list.push(...got); } else fail++;
-      if (fail >= 6 && !ok) break; // el servicio no acepta ninguna variante: no insistir
+      if (fail >= 2 && !ok) break; // el servicio no acepta ninguna variante: no insistir
     }
   }
   const uniq = (l) => [...new Map(l.map((p) => [p.id, p])).values()];
@@ -212,14 +212,22 @@ await step('catastro', async () => {
 
 /* ---------- 4b. Edificios de OpenStreetMap (respaldo; en España muchos vienen del Catastro) ---------- */
 await step('osmedificios', async () => {
-  const q = `[out:json][timeout:300];
-way["railway"="rail"](${bb})->.rails;
-way["building"](around.rails:650);
-out body geom qt;`;
-  const j = await overpass(q);
-  const out = j.elements.filter((e) => e.type === 'way' && e.geometry).map((e) => ({ id: e.id, t: { b: e.tags.building, l: e.tags['building:levels'], h: e.tags.height, n: e.tags.name, rt: e.tags['roof:shape'] }, g: e.geometry.map((p) => [+p.lat.toFixed(7), +p.lon.toFixed(7)]) }));
+  // Por teselas de 1 km del corredor (consultas pequeñas, no bloquean Overpass)
+  const { fromUTM } = await import('./geo.mjs');
+  const tiles = corridorTiles(0), seen = new Map();
+  let fail = 0;
+  for (const t of tiles) {
+    const [ti, tj] = t.split('_').map(Number);
+    const [s1, w1] = fromUTM(ti * 1000, tj * 1000), [n1, e1] = fromUTM(ti * 1000 + 1000, tj * 1000 + 1000);
+    try {
+      const j = await overpass(`[out:json][timeout:90];way["building"](${s1.toFixed(6)},${w1.toFixed(6)},${n1.toFixed(6)},${e1.toFixed(6)});out body geom qt;`);
+      j.elements.forEach((e) => { if (e.type === 'way' && e.geometry && !seen.has(e.id)) seen.set(e.id, { id: e.id, t: { b: e.tags.building, l: e.tags['building:levels'], h: e.tags.height, n: e.tags.name }, g: e.geometry.map((p) => [+p.lat.toFixed(7), +p.lon.toFixed(7)]) }); });
+    } catch (e) { fail++; console.warn('  edificios', t, String(e).slice(0, 200)); }
+    await sleep(1500);
+  }
+  const out = [...seen.values()];
   fs.writeFileSync(path.join(OUT, 'osm-edificios.json'), JSON.stringify(out));
-  return { edificios: out.length, conPlantas: out.filter((b) => b.t.l).length };
+  return { teselas: tiles.length, fail, edificios: out.length, conPlantas: out.filter((b) => b.t.l).length };
 });
 
 /* ---------- 5. Horarios: GTFS de Renfe Cercanías ---------- */

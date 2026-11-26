@@ -1,0 +1,52 @@
+name: Compilar .exe de Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+
+      - name: Pruebas del núcleo (física, ASFA, señales, servicio completo)
+        run: npm test
+
+      - name: Generar RAILCORE.exe (portable e instalador)
+        run: npm run dist:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Subir los .exe como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: RAILCORE-Windows
+          path: dist/*.exe
+          if-no-files-found: error
+
+      - name: Publicar versión descargable (sólo en main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: RAILCORE 0.1.${{ github.run_number }} (prototipo)
+          body: |
+            Prototipo jugable de RAILCORE para Windows.
+            - **RAILCORE-0.1.0-portable.exe**: descárgalo y ábrelo con doble clic, no necesita instalación.
+            - **RAILCORE-0.1.0-instalador.exe**: instala el juego con acceso directo en el escritorio.
+            Windows puede avisar de que la aplicación no está firmada: pulsa «Más información» → «Ejecutar de todas formas».
+          files: dist/*.exe
+          prerelease: true

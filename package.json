@@ -20,7 +20,9 @@
   "build": {
     "appId": "es.railcore.sim",
     "productName": "RAILCORE",
-    "directories": { "output": "dist" },
+    "directories": {
+      "output": "dist"
+    },
     "files": [
       "index.html",
       "styles.css",
@@ -30,9 +32,12 @@
     ],
     "win": {
       "icon": "build/icon.png",
-      "artifactName": "RAILCORE-${version}-${arch}-${target}.${ext}"
+      "artifactName": "RAILCORE-${version}-${arch}-${target}.${ext}",
+      "signAndEditExecutable": false
     },
-    "portable": { "artifactName": "RAILCORE-${version}-portable.exe" },
+    "portable": {
+      "artifactName": "RAILCORE-${version}-portable.exe"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

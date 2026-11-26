@@ -5,7 +5,7 @@
  * Ejes: X derecha, Y arriba, el tren avanza hacia −Z. */
 (function (RC) {
   var U = RC.core.util, TT = RC.core.timetable;
-  var STEP = 5, X0 = -800, X1 = 31000;
+  var STEP = 5, X0 = -800, X1 = 31000;   // X1 se ajusta a la longitud de la línea
   var GAUGE = 1.668 / 2, TRACK2 = -4.3;
 
   /* Material PBR con texturas CC0 reales (Poly Haven) incrustadas. */
@@ -33,6 +33,17 @@
 
   /* ---------- Trazado: centro de la vía 1 a lo largo de x ---------- */
   function buildAlignment(line) {
+    // Ruta real: geometría medida (OpenStreetMap + MDT del IGN), muestreada cada STEP m desde X0
+    if (line.geometry) {
+      var G = line.geometry, m = G.px.length;
+      var qx = new Float64Array(G.px), qz = new Float64Array(G.pz), qy = new Float64Array(G.py), qh = new Float64Array(m);
+      for (var j = 0; j < m; j++) {
+        var a0 = Math.max(0, j - 1), a1 = Math.min(m - 1, j + 1);
+        qh[j] = Math.atan2(qx[a1] - qx[a0], -(qz[a1] - qz[a0]));
+        if (j > 0) { while (qh[j] - qh[j - 1] > Math.PI) qh[j] -= 2 * Math.PI; while (qh[j] - qh[j - 1] < -Math.PI) qh[j] += 2 * Math.PI; }
+      }
+      return { px: qx, pz: qz, py: qy, th: qh, n: m };
+    }
     var n = Math.ceil((X1 - X0) / STEP) + 1;
     var px = new Float64Array(n), pz = new Float64Array(n), py = new Float64Array(n), th = new Float64Array(n);
     var heading = 0, X = 0, Z = 0, Y = 0;
@@ -104,6 +115,7 @@
   }
 
   /* ---------- Texturas procedurales ---------- */
+  function brandHex(c) { return typeof c === 'number' ? c : parseInt(String(c).replace('#', ''), 16); }
   function canvasTex(w, h, draw, repeat) {
     var c = document.createElement('canvas'); c.width = w; c.height = h;
     draw(c.getContext('2d'), w, h);
@@ -145,9 +157,13 @@
     });
   }
 
+  function G_X1(line) { return X0 + (line.geometry.px.length - 1) * STEP; }
+
   /* ---------- Construcción del mundo ---------- */
   function build(scene, sim) {
-    var line = sim.line, al = buildAlignment(line);
+    var line = sim.line;
+    X1 = line.geometry ? G_X1(line) : 31000;
+    var al = buildAlignment(line);
     var W = { al: al, scene: scene, signals: [], stations: [], dyn: {} };
     var root = new THREE.Group(); scene.add(root); W.root = root;
 
@@ -169,7 +185,9 @@
     W.M = M;
 
     // Terreno: ancha cinta que sigue el perfil, algo por debajo del carril
-    root.add(ribbon(al, X0, X1, 20, -700, 700, -0.9, -0.9, M.ground, 40));
+    if (line.real) {   // con terreno real sólo la plataforma de la vía; el resto lo pone realworld3d
+      root.add(ribbon(al, X0, X1, 10, TRACK2 - 9, -TRACK2 + 5, -0.95, -0.95, M.ground, 40));
+    } else root.add(ribbon(al, X0, X1, 20, -700, 700, -0.9, -0.9, M.ground, 40));
     // Balasto y carriles de las dos vías
     root.add(ribbon(al, X0, X1, 10, TRACK2 + 1.4, -1.4, 0, 0, M.ballast, 1.5));   // entrevía
     [0, TRACK2].forEach(function (off) {
@@ -259,7 +277,7 @@
       }
       // Cartel con el nombre (a ambos lados de la marquesina)
       [st.stopX - 40, st.stopX - 150].forEach(function (sx) {
-        var sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.6), new THREE.MeshBasicMaterial({ map: textTex(st.name, { w: 1024, h: 146, size: 0.5 }), side: THREE.DoubleSide }));
+        var sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.6), new THREE.MeshBasicMaterial({ map: textTex(st.name, { w: 1024, h: 146, size: 0.5, bg: RC.data.brand ? RC.data.brand.signage.stationBg : undefined }), side: THREE.DoubleSide }));
         root.add(place(sign, al, sx, mid, 3.6));
       });
       // Cartelón de parada «P»
@@ -304,7 +322,7 @@
     var facadeImg = new Image(); facadeImg.onload = function () { paintFacade(facadeImg); }; facadeImg.src = RC.data.textures.facade_diff;
     var bMatB = new THREE.MeshStandardMaterial({ map: winTex, roughness: 0.9, emissive: 0xffffff, emissiveMap: litTex, emissiveIntensity: 0 });
     W.buildingMat = bMatB;
-    var urban = function (x) { return x < 8200 || (x > 12300 && x < 14800) || x > 28800; };
+    var urban = line.real ? function () { return false; } : function (x) { return x < 8200 || (x > 12300 && x < 14800) || x > 28800; };
     var bGeo2 = new THREE.BoxGeometry(1, 1, 1);
     var bIm = new THREE.InstancedMesh(bGeo2, bMatB, 1400), bi = 0;
     var tGeo = new THREE.IcosahedronGeometry(1, 1), tMat = new THREE.MeshStandardMaterial({ color: 0x55663a, roughness: 0.95, flatShading: true });
@@ -321,7 +339,7 @@
           }
         } else {
           for (var r2 = 0; r2 < 3 && ti < 5000; r2++) {
-            if (rngB() < 0.6) {
+            if (!line.real && rngB() < 0.6) {
               var lat2 = s2 * (14 + rngB() * 160) + (s2 < 0 ? TRACK2 : 0), sc = 1.4 + rngB() * 1.4;
               place(dummy, al, bx + rngB() * 18, lat2, 0.0); dummy.position.y += -0.3; dummy.updateMatrix(); trIm.setMatrixAt(ti, dummy.matrix);
               dummy.position.y += 1.3 + sc * 0.6; dummy.scale.set(sc * 1.3, sc, sc * 1.3); dummy.updateMatrix(); tIm.setMatrixAt(ti, dummy.matrix); dummy.scale.set(1, 1, 1);
@@ -343,12 +361,15 @@
       board.position.set(0, 2.4, 0.03); g.add(board);
       root.add(place(g, al, sl.from, 3.1, 0));
     });
-    for (var kx = 0; kx <= 30000; kx += 500) {
-      var kp = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, 0.08), new THREE.MeshBasicMaterial({ map: textTex((kx / 1000).toFixed(1), { bg: '#f4f4f4', fg: '#111', w: 128, h: 256, size: 0.3 }) }));
-      root.add(place(kp, al, kx, -2.6, 0.5));
-    }
+    // Postes kilométricos: los reales (PK de la línea) si la ruta los trae
+    var posts = line.kmPosts || [];
+    if (!posts.length) for (var kx = 0; kx <= 30000; kx += 500) posts.push({ x: kx, label: (kx / 1000).toFixed(1) });
+    posts.forEach(function (kp0) {
+      var kp = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, 0.08), new THREE.MeshBasicMaterial({ map: textTex(kp0.label, { bg: '#f4f4f4', fg: '#111', w: 128, h: 256, size: 0.3 }) }));
+      root.add(place(kp, al, kp0.x, -2.6, 0.5));
+    });
     // Pasos superiores
-    line.landmarks.forEach(function (lm) {
+    (line.landmarks || []).forEach(function (lm) {
       if (lm.kind !== 'puente') return;
       var g = new THREE.Group();
       var deck = new THREE.Mesh(new THREE.BoxGeometry(34, 1.4, 9), M.concrete); deck.position.set(-2, 8.2, 0); g.add(deck);
@@ -356,11 +377,12 @@
       root.add(place(g, al, lm.x, 0, 0));
     });
 
-    // Tren precedente (Civia vista por detrás)
+    // Tren precedente (vista por detrás) con la librea de la marca activa
+    var liv = RC.data.brand && RC.data.brand.livery;
     var ghost = new THREE.Group();
-    var body = new THREE.Mesh(new THREE.BoxGeometry(2.9, 3.0, sim.line.precedingTrain.length_m), new THREE.MeshLambertMaterial({ color: 0xe9ecef }));
+    var body = new THREE.Mesh(new THREE.BoxGeometry(2.9, 3.0, sim.line.precedingTrain.length_m), new THREE.MeshLambertMaterial({ color: liv ? brandHex(liv.body) : 0xe9ecef }));
     body.position.y = 2.6; ghost.add(body);
-    var stripe = new THREE.Mesh(new THREE.BoxGeometry(2.92, 0.35, sim.line.precedingTrain.length_m), new THREE.MeshLambertMaterial({ color: 0x8b1a3a }));
+    var stripe = new THREE.Mesh(new THREE.BoxGeometry(2.92, 0.35, sim.line.precedingTrain.length_m), new THREE.MeshLambertMaterial({ color: liv ? brandHex(liv.lower) : 0x8b1a3a }));
     stripe.position.y = 1.8; ghost.add(stripe);
     var glass = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.0), new THREE.MeshLambertMaterial({ color: 0x1d2733 }));
     glass.position.set(0, 3.3, sim.line.precedingTrain.length_m / 2 + 0.01); ghost.add(glass);
@@ -372,6 +394,7 @@
     });
     root.add(ghost); W.ghost = ghost;
 
+    if (line.real && RC.ui3d.realworld) RC.ui3d.realworld.build(W, sim);
     return W;
   }
 
@@ -407,9 +430,10 @@
     // Tren precedente
     W.ghost.visible = !!sim.ghost.active && Math.abs(sim.ghost.x - x) < 4000;
     if (W.ghost.visible) place(W.ghost, al, sim.ghost.x - sim.ghost.length / 2, 0, 0);
-    W.buildingMat.emissiveIntensity = night * 1.2;
+    if (W.real) RC.ui3d.realworld.update(W, sim, night);
+    else W.buildingMat.emissiveIntensity = night * 1.2;
   }
 
   RC.ui3d = RC.ui3d || {};
-  RC.ui3d.world = { build: build, update: update, frame: frame, at: at, place: place, buildAlignment: buildAlignment, textTex: textTex, canvasTex: canvasTex, glowTex: glowTex };
+  RC.ui3d.world = { ribbon: ribbon, build: build, update: update, frame: frame, at: at, place: place, buildAlignment: buildAlignment, textTex: textTex, canvasTex: canvasTex, glowTex: glowTex };
 })(globalThis.RC);

@@ -133,13 +133,14 @@ await step('mdt', async () => {
 /* ---------- 3. Ortofoto PNOA (IGN) ---------- */
 await step('pnoa', async () => {
   const dir = path.join(OUT, 'pnoa'); fs.mkdirSync(dir, { recursive: true });
-  const tiles = corridorTiles(0);
+  // Corredor a 1024 px/km (≈1 m/píxel) y anillo exterior a 512 px/km
+  const inner = new Set(corridorTiles(0)), tiles = corridorTiles(1);
   let ok = 0, fail = 0, firstErr = null, bytes = 0;
   for (const t of tiles) {
     const f = path.join(dir, t + '.jpg');
     if (fs.existsSync(f)) { ok++; bytes += fs.statSync(f).size; continue; }
     const [ti, tj] = t.split('_').map(Number), E0 = ti * 1000, N0 = tj * 1000;
-    const url = `https://www.ign.es/wms-inspire/pnoa-ma?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=OI.OrthoimageCoverage&STYLES=&CRS=EPSG:25830&BBOX=${E0},${N0},${E0 + 1000},${N0 + 1000}&WIDTH=1024&HEIGHT=1024&FORMAT=image/jpeg`;
+    const url = `https://www.ign.es/wms-inspire/pnoa-ma?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=OI.OrthoimageCoverage&STYLES=&CRS=EPSG:25830&BBOX=${E0},${N0},${E0 + 1000},${N0 + 1000}&WIDTH=${inner.has(t) ? 1024 : 512}&HEIGHT=${inner.has(t) ? 1024 : 512}&FORMAT=image/jpeg`;
     try {
       const buf = Buffer.from(await (await get(url, {}, 3)).arrayBuffer());
       if (buf[0] === 0xff && buf[1] === 0xd8) { fs.writeFileSync(f, buf); ok++; bytes += buf.length; }
@@ -180,6 +181,7 @@ await step('catastro', async () => {
   };
   const chosen = {};
   for (const t of tiles) {
+    if (fail >= 6 && !ok) break;
     const [ti, tj] = t.split('_').map(Number), E0 = ti * 1000, N0 = tj * 1000;
     for (const [kind, list] of [['parts', parts], ['buildings', buildings]]) {
       const tries = chosen[kind] ? [chosen[kind]] : V[kind];
@@ -198,6 +200,7 @@ await step('catastro', async () => {
         if (got) break;
       }
       if (got) { ok++; list.push(...got); } else fail++;
+      if (fail >= 6 && !ok) break; // el servicio no acepta ninguna variante: no insistir
     }
   }
   const uniq = (l) => [...new Map(l.map((p) => [p.id, p])).values()];

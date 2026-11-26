@@ -7,6 +7,19 @@ funcional, física del tren, señales y ASFA.
 > Los datos reales (distancias, velocidades, valores del tren y del ASFA) son **aproximados**
 > y están marcados con `[Verificar]` en el código. No es material oficial de Renfe ni de Adif.
 
+## Ruta real C-1 (datos abiertos)
+
+La línea Sevilla-Santa Justa – Utrera está construida con **datos reales abiertos**: trazado,
+túneles, puentes, desvíos y andenes de OpenStreetMap; relieve del MDT LiDAR del IGN; suelo con la
+ortofoto PNOA; edificios del Catastro; horarios y números de tren del GTFS de Cercanías. Cómo se
+genera: `tools/route/README.md`. Créditos y licencias: `CREDITOS-DATOS.md`.
+
+## Marcas
+
+El operador **Ferronda** y el administrador de infraestructuras **Trazia** son marcas
+**ficticias y originales**. No se usan logotipos ni libreas de Renfe, Adif ni otras empresas.
+Ver `assets/brand/README.md` (incluye cómo cambiar de paquete de marca).
+
 ## Cómo jugar en Windows (.exe)
 
 1. Entra en la pestaña **Releases** del repositorio (columna derecha de la página principal en GitHub).

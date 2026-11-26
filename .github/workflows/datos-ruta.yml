@@ -37,6 +37,8 @@ jobs:
         run: node tools/route/fetch-sources.mjs
         env:
           ONLY: ${{ github.event.inputs.only }}
+      - name: Construir la ruta jugable (src/data/c1)
+        run: cd tools/route && node build-route.mjs
       - name: Mostrar informe
         if: always()
         run: cat data/fuentes/c1/informe-descarga.json || true
@@ -45,6 +47,6 @@ jobs:
         run: |
           git config user.name "railcore-datos[bot]"
           git config user.email "railcore-datos@users.noreply.github.com"
-          git add data/fuentes/c1
+          git add data/fuentes/c1 src/data/c1
           git commit -m "Datos abiertos de la C-1 descargados por GitHub Actions" || exit 0
           for i in 1 2 3; do git pull --rebase --no-edit && git push && break; sleep 5; done

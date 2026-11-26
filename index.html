@@ -53,7 +53,7 @@
 <div id="overlay" class="overlay">
   <div class="dialog" id="startDialog">
     <h1>RAILCORE</h1>
-    <p class="sub">Prototipo 0.1 · Renfe Civia · Cercanías Sevilla C-1 · Santa Justa → Utrera</p>
+    <p class="sub">Prototipo · Civia · Ferronda Cercanías C-1 (ruta real) · Santa Justa → Utrera</p>
     <div class="scenarios" id="scenarioList"></div>
     <div class="options">
       <label><input type="checkbox" id="optCab3d" checked> <b>Cabina 3D</b> (recomendado; desmárcalo si tu ordenador va lento)</label>
@@ -66,7 +66,7 @@
       <label><input type="checkbox" id="optAuto"> Modo demostración (conduce el maquinista automático)</label>
     </div>
     <button id="btnStart" class="primary">Empezar la jornada</button>
-    <p class="note">Los datos de la línea, del tren y del ASFA son aproximados y están marcados como «Verificar» en el código. No es material oficial de Renfe ni Adif.</p>
+    <p class="note">Los datos de la línea, del tren y del ASFA son aproximados y están marcados como «Verificar» en el código. Ferronda y Trazia son marcas ficticias. La ruta se ha construido con datos abiertos (OpenStreetMap, IGN, Catastro, GTFS); créditos en CREDITOS-DATOS.md.</p>
   </div>
   <div class="dialog hidden" id="helpDialog">
     <h2>Mandos y teclas</h2>
@@ -87,6 +87,8 @@
 <script src="src/data/civia.js"></script>
 <script src="src/data/asfa.js"></script>
 <script src="src/data/line-c1.js"></script>
+<script src="src/data/brand.js"></script>
+<script src="src/data/c1/line-c1-real.js"></script>
 <script src="src/core/train.js"></script>
 <script src="src/core/asfa.js"></script>
 <script src="src/core/timetable.js"></script>
@@ -102,7 +104,10 @@
 <script src="src/ui/map.js"></script>
 <script src="src/ui/cab.js"></script>
 <script src="src/ui/instructor.js"></script>
+<script src="src/data/c1/terrain-c1.js"></script>
+<script src="src/data/c1/buildings-c1.js"></script>
 <script src="src/ui3d/world3d.js"></script>
+<script src="src/ui3d/realworld3d.js"></script>
 <script src="src/ui3d/displays3d.js"></script>
 <script src="src/ui3d/cab3d.js"></script>
 <script src="src/ui3d/scene3d.js"></script>

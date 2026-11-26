@@ -171,26 +171,52 @@ function parseGmlParts(xml) {
 await step('catastro', async () => {
   const tiles = corridorTiles(0);
   const parts = [], buildings = [];
-  let ok = 0, fail = 0, firstErr = null, sample = null;
-  const base = 'https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx?service=wfs&version=2&request=getfeature&srsname=EPSG::25830';
+  let ok = 0, fail = 0, errors = {}, sample = null;
+  const base = 'https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx?service=wfs&version=2.0.0&request=GetFeature&srsname=EPSG::25830';
+  // Variantes de consulta por recuadro; nos quedamos con la primera que funcione
+  const V = {
+    parts: ['&typenames=BU:BUILDINGPART', '&typenames=bu-ext2d:BuildingPart', '&STOREDQUERY_ID=GetBuildingPartByBBox', '&STOREDQUERIE_ID=GETBUILDINGPARTBYBBOX'],
+    buildings: ['&typenames=BU:BUILDING', '&typenames=bu-core2d:Building', '&STOREDQUERY_ID=GetBuildingByBBox', '&STOREDQUERIE_ID=GETBUILDINGBYBBOX']
+  };
+  const chosen = {};
   for (const t of tiles) {
     const [ti, tj] = t.split('_').map(Number), E0 = ti * 1000, N0 = tj * 1000;
-    for (const [q, list] of [['GetBuildingPartByBBox', parts], ['GetBuildingByBBox', buildings]]) {
-      try {
-        const xml = await (await get(`${base}&STOREDQUERIE_ID=${q}&bbox=${E0},${N0},${E0 + 1000},${N0 + 1000}`, {}, 3)).text();
-        if (!sample) sample = xml.slice(0, 3000);
-        const got = parseGmlParts(xml);
-        if (!got.length && /Exception/i.test(xml)) { fail++; firstErr = firstErr || xml.slice(0, 600); }
-        else { ok++; list.push(...got); }
-      } catch (e) { fail++; firstErr = firstErr || String(e).slice(0, 400); }
-      await sleep(300);
+    for (const [kind, list] of [['parts', parts], ['buildings', buildings]]) {
+      const tries = chosen[kind] ? [chosen[kind]] : V[kind];
+      let got = null;
+      for (const v of tries) {
+        for (const bb of [`${E0},${N0},${E0 + 1000},${N0 + 1000}`, `${N0},${E0},${N0 + 1000},${E0 + 1000}`]) {
+          try {
+            const xml = await (await get(`${base}${v}&bbox=${bb}`, {}, 2)).text();
+            if (!sample || (sample.length < 3000 && /posList/.test(xml))) sample = xml.slice(0, 6000);
+            const g = parseGmlParts(xml);
+            if (g.length) { got = g; chosen[kind] = v; break; }
+            errors[v] = errors[v] || xml.slice(0, 300);
+          } catch (e) { errors[v] = errors[v] || String(e).slice(0, 300); }
+          await sleep(250);
+        }
+        if (got) break;
+      }
+      if (got) { ok++; list.push(...got); } else fail++;
     }
   }
   const uniq = (l) => [...new Map(l.map((p) => [p.id, p])).values()];
   fs.writeFileSync(path.join(OUT, 'catastro-partes.json'), JSON.stringify(uniq(parts)));
-  fs.writeFileSync(path.join(OUT, 'catastro-edificios.json'), JSON.stringify(uniq(buildings).map((b) => ({ id: b.id, u: b.u, r: b.r }))));
+  fs.writeFileSync(path.join(OUT, 'catastro-edificios.json'), JSON.stringify(uniq(buildings).map((b) => ({ id: b.id, u: b.u, f: b.f, r: b.r }))));
   if (sample) fs.writeFileSync(path.join(OUT, 'catastro-muestra.xml'), sample);
-  return { teselas: tiles.length, ok, fail, partes: uniq(parts).length, edificios: uniq(buildings).length, firstErr };
+  return { teselas: tiles.length, ok, fail, consultas: chosen, partes: uniq(parts).length, edificios: uniq(buildings).length, errors };
+});
+
+/* ---------- 4b. Edificios de OpenStreetMap (respaldo; en España muchos vienen del Catastro) ---------- */
+await step('osmedificios', async () => {
+  const q = `[out:json][timeout:300];
+way["railway"="rail"](${bb})->.rails;
+way["building"](around.rails:650);
+out body geom qt;`;
+  const j = await overpass(q);
+  const out = j.elements.filter((e) => e.type === 'way' && e.geometry).map((e) => ({ id: e.id, t: { b: e.tags.building, l: e.tags['building:levels'], h: e.tags.height, n: e.tags.name, rt: e.tags['roof:shape'] }, g: e.geometry.map((p) => [+p.lat.toFixed(7), +p.lon.toFixed(7)]) }));
+  fs.writeFileSync(path.join(OUT, 'osm-edificios.json'), JSON.stringify(out));
+  return { edificios: out.length, conPlantas: out.filter((b) => b.t.l).length };
 });
 
 /* ---------- 5. Horarios: GTFS de Renfe Cercanías ---------- */

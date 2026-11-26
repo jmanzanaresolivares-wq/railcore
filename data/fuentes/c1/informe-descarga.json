@@ -1,0 +1,94 @@
+{
+ "fecha": "2026-11-26T17:02:14.753Z",
+ "pasos": {
+  "osm": {
+   "ok": true,
+   "elementos": 25403,
+   "relaciones": 20,
+   "segundos": 33
+  },
+  "mdt": {
+   "ok": 159,
+   "cobertura": "Elevacion25830_5",
+   "coberturas": [
+    "Elevacion4258_1000",
+    "Elevacion4326_1000",
+    "Elevacion4258_500",
+    "Elevacion4326_500",
+    "Elevacion4258_200",
+    "Elevacion4258_25",
+    "Elevacion4258_5",
+    "Elevacion25830_1000",
+    "Elevacion4083_1000",
+    "Elevacion25830_500",
+    "Elevacion4083_500",
+    "Elevacion25830_200",
+    "Elevacion4083_200",
+    "Elevacion25830_25",
+    "Elevacion4083_25",
+    "Elevacion25830_5",
+    "Elevacion4083_5"
+   ],
+   "teselas": 159,
+   "fail": 0,
+   "firstErr": null,
+   "segundos": 55
+  },
+  "pnoa": {
+   "ok": 44,
+   "teselas": 46,
+   "fail": 2,
+   "mb": 9.6,
+   "firstErr": "TypeError: terminated",
+   "segundos": 328
+  },
+  "catastro": {
+   "ok": 0,
+   "teselas": 46,
+   "fail": 92,
+   "partes": 0,
+   "edificios": 0,
+   "firstErr": "<?xml version='1.0' encoding=\"ISO-8859-1\" standalone=\"no\"?>\r\n<ExceptionReport xmlns=\"http://www.opengis.net/ows/1.1\" version=\"2.0.0\">\r\n<Exception exceptionCode=\"OperationProcessingFailed\">\r\n<ExceptionText><![CDATA[Paremter REFCAT can't be null]]></ExceptionText>\r\n</Exception>\r\n</ExceptionReport>\r\n",
+   "segundos": 43
+  },
+  "gtfs": {
+   "ok": true,
+   "mb_zip": 15.9,
+   "rutas": [
+    "10T0001C1 C1 Principe Pio                            -Aeropuerto-T4",
+    "10T0002C1 C1 Aeropuerto-T4                           -Principe Pio",
+    "20T0001C1 C1 Gijon (Sanz Crespo)                     -Puente L.Fierros",
+    "20T0002C1 C1 Puente L.Fierros                        -Gijon (Sanz Crespo)",
+    "30T0001C1 C1 Lora del Rio                            -Lebrija",
+    "30T0002C1 C1 Lebrija                                 -Lora del Rio",
+    "31T0001C1 C1 Cádiz                                   -Aeropuerto de Jerez",
+    "31T0002C1 C1 Aeropuerto de Jerez                     -Cádiz",
+    "31T0007C1 C1 Jerez de la Frontera                    -Las Aletas",
+    "31T0008C1 C1 Las Aletas                              -Jerez de la Frontera",
+    "32T0001C1 C1 Málaga-Centro Alameda                   -Fuengirola",
+    "32T0002C1 C1 Fuengirola                              -Málaga-Centro Alameda",
+    "40T0001C1 C1 Valencia Nord                           -Platja i Grau de Gandia",
+    "40T0002C1 C1 Platja i Grau de Gandia                 -Valencia Nord",
+    "41T0001C1 C1 Murcia del Carmen                       -Alacant Terminal",
+    "41T0002C1 C1 Alacant Terminal                        -Murcia del Carmen",
+    "45T0001C1 C1 Cartagena                               -Los Nietos",
+    "45T0002C1 C1 Los Nietos                              -Cartagena",
+    "46T0001C1 C1 Ferrol                                  -Ortigueira",
+    "46T0002C1 C1 Ortigueira                              -Ferrol",
+    "47T0001C1 C1 Asunción-Universidad                    -Cistierna",
+    "47T0002C1 C1 Cistierna                               -Asunción-Universidad",
+    "60T0001C1 C1 Abando                                  -Santurtzi",
+    "60T0002C1 C1 Santurtzi                               -Abando",
+    "61T0001C1 C1 Irun                                    -Brincola",
+    "61T0002C1 C1 Brincola                                -Irun",
+    "61T0003C1 C1 Lezo-Renteria                           -Beasain",
+    "61T0005C1 C1 -Donostia-San Sebastian",
+    "61T0006C1 C1 Donostia-San Sebastian                  -",
+    "62T0001C1 C1 Santander                               -Reinosa"
+   ],
+   "viajes": 1840,
+   "paradas": 17,
+   "segundos": 26
+  }
+ }
+}

@@ -7,8 +7,8 @@
   var DT = 0.05;
 
   var SCENARIOS = {
-    frio: { name: 'Arranque en frío en Santa Justa', startStation: 0, ready: false, clock: '07:18:00' },
-    listo: { name: 'Tren preparado en Santa Justa', startStation: 0, ready: true, clock: '07:28:30' },
+    frio: { name: 'Arranque en frío en Santa Justa', startStation: 0, ready: false, clockFromDeparture: -720 },
+    listo: { name: 'Tren preparado en Santa Justa', startStation: 0, ready: true, clockFromDeparture: -90 },
     dh: { name: 'Dos Hermanas → Utrera (tren preparado)', startStation: 5, ready: true, clockFromDeparture: -75 }
   };
 
@@ -17,6 +17,9 @@
   function create(scenarioId, overrides) {
     var sc = SCENARIOS[scenarioId] || SCENARIOS.listo;
     var line = RC.data.lineC1, spec = RC.data.civia;
+    if (overrides && overrides.departure) {   // otra hora del día: mismo servicio desplazado
+      line = Object.assign({}, line, { firstDeparture: overrides.departure });
+    }
     var tt = TT.build(line, 0, {});
     var ghostTT = TT.build(line, -line.precedingTrain.headway_s, line.precedingTrain.extraDwell);
     var startSt = line.stations[sc.startStation];

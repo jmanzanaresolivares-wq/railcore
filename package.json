@@ -28,7 +28,8 @@
       "styles.css",
       "src/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "vendor/**/*"
     ],
     "win": {
       "icon": "build/icon.png",

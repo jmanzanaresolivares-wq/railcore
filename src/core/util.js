@@ -43,5 +43,13 @@
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   };
+  /* Elevación aproximada del sol en Sevilla a finales de noviembre (grados). [aprox.] */
+  U.sunElevation = function (clock) {
+    var rise = U.parseClock('08:07:00'), set = U.parseClock('18:02:00'), maxEl = 33;
+    clock = ((clock % 86400) + 86400) % 86400;
+    if (clock < rise) return Math.max(-18, -(rise - clock) / 3600 * 11);
+    if (clock > set) return Math.max(-18, -(clock - set) / 3600 * 11);
+    return maxEl * Math.sin(Math.PI * (clock - rise) / (set - rise));
+  };
   RC.core.util = U;
 })(globalThis.RC);

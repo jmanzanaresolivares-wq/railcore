@@ -50,8 +50,7 @@
     }
 
     // Luz ambiente: amanecer en Sevilla a finales de noviembre (~08:10) [aprox.]
-    var sunrise = U.parseClock('08:10:00');
-    var night = U.clamp((sunrise - sim.clock) / 2700, 0, 1);
+    var night = U.clamp((2 - U.sunElevation(sim.clock)) / 10, 0, 1);
     var day = 1 - night;
 
     // Cielo

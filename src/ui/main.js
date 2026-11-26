@@ -5,7 +5,8 @@
 
   var state = {
     sim: null, scenario: 'frio', paused: false, timeScale: 1,
-    opts: { instructor: true, aids: true, sound: true, voice: true, auto: false },
+    opts: { instructor: true, aids: true, sound: true, voice: true, auto: false, cab3d: true },
+    scene3d: null,
     acc: 0, last: 0, realTime: 0, lastLogSeq: 0, ap: null, reportShown: false
   };
   var view = RC.ui.view.create($('view'));
@@ -19,8 +20,8 @@
 
   /* ---------- Pantalla de inicio ---------- */
   var SC_DESC = {
-    frio: 'La unidad está apagada («cold and dark»). Prepárela paso a paso: baterías, aire, pantógrafo, disyuntor, ASFA… y salga a las 07:30.',
-    listo: 'Unidad preparada en Santa Justa a las 07:28. Directo a conducir el servicio completo hasta Utrera.',
+    frio: 'La unidad está apagada («cold and dark»). Prepárela paso a paso: baterías, aire, pantógrafo, disyuntor, ASFA… y salga a la hora prevista.',
+    listo: 'Unidad preparada en Santa Justa, 90 s antes de la salida. Directo a conducir el servicio completo hasta Utrera.',
     dh: 'Servicio corto: Dos Hermanas → Utrera, 16 km de vía rápida. Ideal para practicar.'
   };
   var list = $('scenarioList');
@@ -51,6 +52,8 @@
     ['M', 'Silenciar sonido'],
     ['I', 'Mostrar / ocultar instructor'],
     ['F1', 'Esta ayuda'],
+    ['1 / 2 / 3 / 4', 'Cabina 3D: mirar al frente / armario de servicios (izquierda) / pupitre / ventanilla'],
+    ['Botón derecho (arrastrar)', 'Cabina 3D: mirar alrededor. Rueda: zoom (o mover el mando bajo el ratón)'],
     ['Ratón', 'Todos los mandos del pupitre se pueden pulsar. La rueda sobre el manipulador lo mueve.']
   ];
   $('helpContent').innerHTML = '<div class="keys">' + KEYS.map(function (k) { return '<div><kbd>' + k[0] + '</kbd></div><div>' + k[1] + '</div>'; }).join('') + '</div>' +
@@ -68,6 +71,7 @@
     state.opts.sound = $('optSound').checked;
     state.opts.voice = $('optVoice').checked;
     state.opts.auto = $('optAuto').checked;
+    state.opts.cab3d = $('optCab3d').checked && !!window.THREE;
     start();
   };
   $('btnCloseHelp').onclick = function () { if (state.sim) { hideOverlay(); state.paused = false; } else showDialog('startDialog'); };
@@ -82,7 +86,19 @@
     RC.ui.audio.init(audio);
     audio.enabled = state.opts.sound; audio.voice = state.opts.voice && state.opts.sound;
     if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
-    state.sim = S.create(state.scenario);
+    state.sim = S.create(state.scenario, { departure: $('optHour').value });
+    document.body.classList.toggle('mode3d', state.opts.cab3d);
+    if (state.opts.cab3d) {
+      try {
+        if (!state.scene3d) state.scene3d = RC.ui3d.scene.create($('view3d'), state.sim, send, state.opts);
+        RC.ui3d.scene.setSim(state.scene3d, state.sim);
+        state.scene3d.setView(0);
+      } catch (err) {
+        console.error(err);
+        state.opts.cab3d = false; document.body.classList.remove('mode3d');
+        toast('No se pudo iniciar la cabina 3D en este equipo: se usa la vista clásica', 'warn');
+      }
+    }
     state.ap = state.opts.auto ? RC.core.autopilot.create({ cold: state.scenario === 'frio' }) : null;
     state.paused = false; state.timeScale = 1; state.acc = 0; state.reportShown = false; state.lastLogSeq = 0;
     $('btnSpeed').textContent = 'Tiempo ×1 (T)';
@@ -112,6 +128,7 @@
     if (k === 'm') { audio.enabled = !audio.enabled; toast(audio.enabled ? 'Sonido activado' : 'Sonido silenciado', 'info'); return; }
     if (k === 'i') { state.opts.instructor = !state.opts.instructor; $('instructorCard').style.display = state.opts.instructor ? '' : 'none'; return; }
     if (k === 't') { cycleSpeed(); return; }
+    if (state.scene3d && state.opts.cab3d && ['1', '2', '3', '4'].indexOf(k) >= 0) { state.scene3d.setView(+k - 1); return; }
     var t = state.sim.train;
     var map = {
       'w': { type: 'leverStep', delta: 1 }, 'arrowup': { type: 'leverStep', delta: 1 },
@@ -247,9 +264,10 @@
         S.step(sim); state.acc -= S.DT; n++;
       }
     }
-    RC.ui.view.render(view, sim, state.opts, state.realTime);
+    if (state.opts.cab3d && state.scene3d) RC.ui3d.scene.render(state.scene3d, sim, state.opts, dtReal, state.realTime);
+    else RC.ui.view.render(view, sim, state.opts, state.realTime);
     RC.ui.map.render($('map'), sim);
-    cab.update(sim, state.opts);
+    if (!state.opts.cab3d) cab.update(sim, state.opts);
     renderSide(sim);
     renderHud(sim);
     RC.ui.instructor.render($('instructor'), sim, state.opts.instructor);

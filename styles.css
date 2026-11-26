@@ -123,3 +123,12 @@ button.primary { background: var(--accent); color: #1b1305; border-color: var(--
 #lever { width: 84px; }
 .pnl .grid2 .ctl { width: 108px; }
 @media (max-width: 1750px) { #app { grid-template-columns: 1fr 290px; } .pnl .grid2 .ctl { width: 98px; } .lcd { width: 176px; } .bars { min-width: 150px; } }
+
+/* ---------- Modo cabina 3D ---------- */
+#view3d { position: absolute; inset: 0 0 54px 0; width: 100%; height: calc(100% - 54px); display: none; cursor: grab; }
+body.mode3d #view3d { display: block; }
+body.mode3d #view { display: none; }
+body.mode3d #desk { display: none; }
+body.mode3d #world { grid-row: 1 / span 2; }
+#tip3d { position: fixed; display: none; pointer-events: none; z-index: 5; background: rgba(12,16,20,.92); border: 1px solid #3a444e; border-radius: 6px; padding: 6px 10px; font-size: 12.5px; max-width: 320px; }
+#tip3d span { color: #8b98a5; font-size: 11px; }

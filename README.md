@@ -23,6 +23,16 @@ También se puede jugar sin instalar nada abriendo `index.html` en Chrome o Edge
 
 ## Qué puedes hacer
 
+- **Cabina 3D en primera persona**: pupitre, parabrisas, armario de servicios, asiento,
+  velocímetro, manómetros, pantalla del ASFA Digital y pantalla de estado, todo funcionando.
+  Cada mando es un objeto 3D: el manipulador se arrastra, el inversor gira, los interruptores
+  basculan, los pulsadores se hunden y se iluminan. Botón derecho del ratón para mirar
+  alrededor; teclas 1-4 para mirar al frente, al armario, al pupitre o a la ventanilla.
+- **Mundo 3D** con curvas y rampas, balasto, traviesas, carriles, catenaria, señales que cambian
+  de aspecto, balizas, andenes con viajeros, edificios, olivares, cielo físico según la hora,
+  amanecer, faros y limpiaparabrisas. Texturas reales CC0 de Poly Haven.
+- **Hora de salida a elegir**: amanecer, mediodía, atardecer o noche.
+
 - **Tres escenarios**: arranque en frío en Santa Justa, tren preparado en Santa Justa y
   servicio corto Dos Hermanas → Utrera.
 - **Arranque en frío real**: baterías → llave de cabina → compresor auxiliar → pantógrafo →
@@ -57,6 +67,8 @@ También se puede jugar sin instalar nada abriendo `index.html` en Chrome o Edge
 | H · L · B | Bocina · faros · freno de estacionamiento |
 | T · P · F1 | Acelerar tiempo · pausa · ayuda |
 | F11 | Pantalla completa (en el .exe) |
+| 1 / 2 / 3 / 4 | Cabina 3D: frente / armario de servicios / pupitre / ventanilla |
+| Botón derecho + arrastrar | Mirar alrededor en la cabina 3D |
 
 Todos los mandos del pupitre también se pueden pulsar con el ratón.
 
@@ -69,6 +81,8 @@ Todos los mandos del pupitre también se pueden pulsar con el ratón.
   muerto, enclavamientos) es determinista y está separada de la presentación y de la radio.
 - `src/data/` — datos del tren, de la línea y del ASFA, con las cifras pendientes de verificar.
 - `src/ui/` — cabina, vista frontal, esquema de línea, sonido sintetizado e instructor.
+- `src/ui3d/` — cabina y mundo 3D (Three.js r158, incluido en `vendor/`, MIT).
+- `assets/textures/` — texturas CC0 de Poly Haven (ver `CREDITS.md`); `tools/embed-textures.js` las incrusta en `src/data/textures-data.js`.
 - `electron/` — envoltorio de escritorio para generar el `.exe`.
 - `tests/` — pruebas: física, enclavamientos, ASFA, señales, determinismo y tres servicios
   completos conducidos por el maquinista automático sin ninguna falta.
@@ -79,3 +93,9 @@ Para desarrolladores: `npm install`, `npm test`, `npm start` (abre la versión d
 ## Pendiente de verificar con fuentes oficiales
 
 Ver [`docs/DATOS-A-VERIFICAR.md`](docs/DATOS-A-VERIFICAR.md).
+
+## Modelos y marcas reales
+
+La cabina 3D es un modelo original inspirado en la disposición de un puesto de conducción de
+Cercanías; no reproduce planos del fabricante. Los modelos exactos de la Civia (CAD de CAF/Alstom),
+sus texturas oficiales y los logotipos de Renfe y Adif necesitarían licencia de sus propietarios.

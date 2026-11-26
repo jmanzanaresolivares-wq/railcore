@@ -210,7 +210,7 @@ function demAt(E, N) {
   const ax = Math.min(1, Math.max(0, fx - ix)), ay = Math.min(1, Math.max(0, fy - iy));
   const g = (x, y) => t.data[y * t.w + x];
   const v = [g(ix, iy), g(ix + 1, iy), g(ix, iy + 1), g(ix + 1, iy + 1)];
-  if (v.some((q) => q === t.nod || q < -100 || !isFinite(q))) return null;
+  if (v.some((q) => q === t.nod || q < -100 || q > 3500 || !isFinite(q))) return null;
   return (v[0] * (1 - ax) + v[1] * ax) * (1 - ay) + (v[2] * (1 - ax) + v[3] * ax) * ay;
 }
 demTiles = await loadDem();
@@ -455,10 +455,28 @@ const buildings = [];
 for (const b of blist) {
   let cx = 0, cy = 0; b.ring.forEach(([E, N]) => { cx += E; cy += N; }); cx /= b.ring.length; cy /= b.ring.length;
   const p = project(cx, cy), x = xOf(p.s);
-  if (x < X0 || x > X1 || Math.abs(p.d) > 650 || Math.abs(p.d) < 9) continue;
+  if (x < X0 || x > X1 || Math.abs(p.d) > 650) continue;
   const z = (demAt(cx, cy) ?? Z0) - Z0;
+  // ¿Cubre la vía? (marquesinas, vestíbulos de estación, pasos superiores): sólo se pinta el techo
+  let minE = Infinity, maxE = -Infinity, minN = Infinity, maxN = -Infinity;
+  b.ring.forEach(([E, N]) => { minE = Math.min(minE, E); maxE = Math.max(maxE, E); minN = Math.min(minN, N); maxN = Math.max(maxN, N); });
+  const area = Math.abs(b.ring.reduce((a, [E, N], i) => { const [E2, N2] = b.ring[(i + 1) % b.ring.length]; return a + E * N2 - E2 * N; }, 0)) / 2;
+  if (area > 60000) continue;
+  let over = false;
+  const near = b.ring.some(([E, N]) => Math.abs(project(E, N).d) < 7);
+  if (near) over = true;
+  else for (let i = 0; i < geoPts.length && !over; i += 2) {
+    const [E, N] = geoPts[i];
+    if (E < minE || E > maxE || N < minN || N > maxN) continue;
+    let inside = false;
+    for (let a = 0, c = b.ring.length - 1; a < b.ring.length; c = a++) {
+      const [xa, ya] = b.ring[a], [xc, yc] = b.ring[c];
+      if ((ya > N) !== (yc > N) && E < (xc - xa) * (N - ya) / (yc - ya) + xa) inside = !inside;
+    }
+    over = inside;
+  }
   let ring = b.ring; if (ring.length > 2 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring = ring.slice(0, -1);
-  buildings.push({ t: Math.floor(cx / 1000) + '_' + Math.floor(cy / 1000), z: +z.toFixed(1), h: +(b.hMeters || b.floors * 3.1 + 0.8).toFixed(1), s: b.station ? 1 : undefined, k: /industrial|agriculture/i.test(b.use) ? 'i' : '', p: ring.map(([E, N]) => [+(E - oE).toFixed(1), +(-(N - oN)).toFixed(1)]) });
+  buildings.push({ t: Math.floor(cx / 1000) + '_' + Math.floor(cy / 1000), z: +z.toFixed(1), h: +(b.hMeters || b.floors * 3.1 + 0.8).toFixed(1), s: b.station ? 1 : undefined, o: over ? 1 : undefined, k: /industrial|agriculture/i.test(b.use) ? 'i' : '', p: ring.map(([E, N]) => [+(E - oE).toFixed(1), +(-(N - oN)).toFixed(1)]) });
 }
 log('edificios', buildings.length, 'de', buildingsSrc);
 

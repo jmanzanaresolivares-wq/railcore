@@ -42,7 +42,7 @@
       pos.setXYZ(i, o.x + c * res, hv / 10 - line.origin.Z, o.z - (n - 1 - r) * res);
     }
     g.computeVertexNormals();
-    var mat = new THREE.MeshStandardMaterial({ color: 0xb9b49a, roughness: 1, metalness: 0 });
+    var mat = new THREE.MeshStandardMaterial({ color: 0xb9b49a, roughness: 1, metalness: 0, side: THREE.DoubleSide });
     var mesh = new THREE.Mesh(g, mat);
     R.group.add(mesh);
     var tile = { key: key, mesh: mesh, ortho: false };
@@ -55,7 +55,9 @@
       img.onload = function () {
         if (!tile.mesh) return;
         var t = new THREE.Texture(img); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.needsUpdate = true;
-        mat.map = t; mat.color.setHex(0xffffff); mat.needsUpdate = true; tile.ortho = true;
+        // La ortofoto ya trae la luz del día: parte se pinta como emisiva para no apagarla
+        mat.map = t; mat.emissiveMap = t; mat.emissive.setHex(0xffffff); mat.emissiveIntensity = R.orthoGlow;
+        mat.color.setHex(0xffffff); mat.needsUpdate = true; tile.ortho = true;
       };
       img.src = d;
     });
@@ -86,13 +88,13 @@
       var tri;
       try { tri = THREE.ShapeUtils.triangulateShape(pts2, []); } catch (e) { return; }
       c.setHex(b.k === 'i' ? 0xc9c6bd : palette[(bi * 7 + ring.length) % palette.length]);
-      var n = pts2.length, roofY = b.z + top;
+      var n = pts2.length, roofY = b.o ? Math.max(b.z + top, 8.5) : b.z + top;
       // techo
       for (var i = 0; i < n; i++) { pos.push(pts2[i].x, roofY, pts2[i].y); col.push(c.r * 0.82, c.g * 0.82, c.b * 0.82); }
       tri.forEach(function (t) { idx.push(base + t[0], base + t[2], base + t[1]); });
       base += n;
-      // fachadas
-      for (i = 0; i < n; i++) {
+      // fachadas (no en los que cubren la vía: ahí sólo hay techo, como una marquesina)
+      for (i = 0; i < n && !b.o; i++) {
         var a = pts2[i], d = pts2[(i + 1) % n];
         pos.push(a.x, bot, a.y, d.x, bot, d.y, d.x, roofY, d.y, a.x, roofY, a.y);
         var sh = 0.86 + 0.14 * Math.abs(Math.sin(Math.atan2(d.y - a.y, d.x - a.x)));
@@ -115,7 +117,7 @@
   /* ---------- Construcción ---------- */
   function build(W, sim) {
     var line = sim.line, al = W.al, root = W.root, W3m = W3();
-    var R = { line: line, group: new THREE.Group(), tiles: {}, bTiles: {}, M: W.M, lastKey: null };
+    var R = { line: line, group: new THREE.Group(), tiles: {}, bTiles: {}, M: W.M, lastKey: null, orthoGlow: 0.55 };
     root.add(R.group);
     R.M.buildings = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
     W.buildingMat = R.M.buildings; W.buildingMat.emissiveIntensity = 0;
@@ -178,7 +180,7 @@
       });
     }
 
-    W.real = R;
+    W.real = R; RC.ui3d.realworld.last = R;
     update(W, sim, 0, true);
     return R;
   }
@@ -206,6 +208,8 @@
   /* Carga/descarga de teselas alrededor del tren (radio en km). */
   function update(W, sim, night, force) {
     var R = W.real; if (!R) return;
+    var glow = 0.55 * (1 - (night || 0));
+    if (Math.abs(glow - R.orthoGlow) > 0.01) { R.orthoGlow = glow; for (var tk in R.tiles) if (R.tiles[tk].mesh) R.tiles[tk].mesh.material.emissiveIntensity = glow; }
     var F = W3().frame(W.al, sim.train.x), line = R.line;
     var E = F.x + line.origin.E, N = -F.z + line.origin.N;
     var ti = Math.floor(E / TILE), tj = Math.floor(N / TILE), key = ti + '_' + tj;

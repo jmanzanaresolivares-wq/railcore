@@ -186,7 +186,7 @@
 
     // Terreno: ancha cinta que sigue el perfil, algo por debajo del carril
     if (line.real) {   // con terreno real sólo la plataforma de la vía; el resto lo pone realworld3d
-      root.add(ribbon(al, X0, X1, 10, TRACK2 - 9, -TRACK2 + 5, -0.95, -0.95, M.ground, 40));
+      root.add(ribbon(al, X0, X1, 10, TRACK2 - 4.2, 4.2, -0.9, -0.9, M.ground, 40));
     } else root.add(ribbon(al, X0, X1, 20, -700, 700, -0.9, -0.9, M.ground, 40));
     // Balasto y carriles de las dos vías
     root.add(ribbon(al, X0, X1, 10, TRACK2 + 1.4, -1.4, 0, 0, M.ballast, 1.5));   // entrevía

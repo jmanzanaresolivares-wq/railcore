@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAILCORE — Civia C-1 Sevilla</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <main id="world">
+    <canvas id="view"></canvas>
+    <div id="hud"></div>
+    <div id="toast"></div>
+    <canvas id="map"></canvas>
+  </main>
+
+  <aside id="side">
+    <section class="card clock-card">
+      <div id="clock">--:--:--</div>
+      <div id="trainInfo"></div>
+      <div id="delayInfo"></div>
+      <div class="row tight">
+        <button id="btnPause" class="small">Pausa (P)</button>
+        <button id="btnSpeed" class="small">Tiempo ×1 (T)</button>
+        <button id="btnHelp" class="small">Teclas (F1)</button>
+      </div>
+    </section>
+    <section class="card">
+      <h3>Hoja de ruta</h3>
+      <table id="roster"></table>
+    </section>
+    <section class="card" id="instructorCard">
+      <h3>Instructor</h3>
+      <div id="instructor"></div>
+    </section>
+    <section class="card">
+      <h3>Radio tren-tierra</h3>
+      <div id="radio"></div>
+      <div class="row tight"><button id="btnRadioReady" class="small">Comunicar «tren preparado»</button></div>
+    </section>
+    <section class="card grow">
+      <h3>Registrador de eventos</h3>
+      <div id="log"></div>
+    </section>
+  </aside>
+
+  <footer id="desk"></footer>
+</div>
+
+<div id="overlay" class="overlay">
+  <div class="dialog" id="startDialog">
+    <h1>RAILCORE</h1>
+    <p class="sub">Prototipo 0.1 · Renfe Civia · Cercanías Sevilla C-1 · Santa Justa → Utrera</p>
+    <div class="scenarios" id="scenarioList"></div>
+    <div class="options">
+      <label><input type="checkbox" id="optInstructor" checked> Instructor (modo aprendizaje)</label>
+      <label><input type="checkbox" id="optAids" checked> Ayudas en pantalla (velocidad máxima de la vía)</label>
+      <label><input type="checkbox" id="optSound" checked> Sonido</label>
+      <label><input type="checkbox" id="optVoice" checked> Voz en la radio (si Windows tiene voz en español)</label>
+      <label><input type="checkbox" id="optAuto"> Modo demostración (conduce el maquinista automático)</label>
+    </div>
+    <button id="btnStart" class="primary">Empezar la jornada</button>
+    <p class="note">Los datos de la línea, del tren y del ASFA son aproximados y están marcados como «Verificar» en el código. No es material oficial de Renfe ni Adif.</p>
+  </div>
+  <div class="dialog hidden" id="helpDialog">
+    <h2>Mandos y teclas</h2>
+    <div id="helpContent"></div>
+    <button id="btnCloseHelp" class="primary">Volver</button>
+  </div>
+  <div class="dialog hidden" id="reportDialog">
+    <div id="reportContent"></div>
+    <div class="row">
+      <button id="btnRestart" class="primary">Nueva jornada</button>
+      <button id="btnContinue">Seguir mirando</button>
+    </div>
+  </div>
+</div>
+
+<script src="src/core/namespace.js"></script>
+<script src="src/core/util.js"></script>
+<script src="src/data/civia.js"></script>
+<script src="src/data/asfa.js"></script>
+<script src="src/data/line-c1.js"></script>
+<script src="src/core/train.js"></script>
+<script src="src/core/asfa.js"></script>
+<script src="src/core/timetable.js"></script>
+<script src="src/core/signalling.js"></script>
+<script src="src/core/sim.js"></script>
+<script src="src/core/report.js"></script>
+<script src="src/core/autopilot.js"></script>
+<script src="src/ui/audio.js"></script>
+<script src="src/ui/view.js"></script>
+<script src="src/ui/map.js"></script>
+<script src="src/ui/cab.js"></script>
+<script src="src/ui/instructor.js"></script>
+<script src="src/ui/main.js"></script>
+</body>
+</html>

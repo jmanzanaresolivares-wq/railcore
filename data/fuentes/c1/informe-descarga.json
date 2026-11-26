@@ -1,11 +1,10 @@
 {
- "fecha": "2026-11-26T20:33:07.003Z",
+ "fecha": "2026-11-26T21:14:24.303Z",
  "pasos": {
   "osm": {
-   "ok": true,
-   "elementos": 25403,
-   "relaciones": 20,
-   "segundos": 40
+   "ok": false,
+   "error": "Error: HTTP 504 <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n\n    at get (file:///home/runner/work/railcore/railcore/tools/route/fetch-sources.mjs:26:14)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async overpass (file:///home/runner/work/railcore/railcore/tools/route/fetch-sources.mjs:49:21)\n    at async file:///home/runner/work/railcore/railcore/tools/route/fetch-sources.mjs:72:13\n    at async step (file:///home/runner/work/railcore/railcore/tools/route/fetch-sources.mjs:37:46)\n    at async file:///home/runner/work/railcore/railcore/tools/route/fetch-sources.mjs:55:1",
+   "segundos": 269
   },
   "mdt": {
    "ok": 159,
@@ -32,7 +31,7 @@
    "teselas": 159,
    "fail": 0,
    "firstErr": null,
-   "segundos": 1
+   "segundos": 0
   },
   "pnoa": {
    "ok": 159,
@@ -40,7 +39,70 @@
    "fail": 0,
    "mb": 16.4,
    "firstErr": null,
-   "segundos": 35
+   "segundos": 267
+  },
+  "osmedificios": {
+   "ok": false,
+   "error": "Error: Command failed: curl -sSL --max-time 900 -A RAILCORE-route-builder/0.1 (open-source railway simulator; github.com/jmanzanaresolivares-wq/railcore) -o /tmp/osm-P3laCs/andalucia.osm.pbf https://download.geofabrik.de/europe/spain/andalucia-latest.osm.pbf\ncurl: (7) Failed to connect to download.geofabrik.de port 443 after 428 ms: Could not connect to server\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at checkExecSyncError (node:child_process:916:11)\n    at execFileSync (node:child_process:952:15)\n    at file:///home/runner/work/railcore/railcore/tools/route/fetch-sources.mjs:160:3\n    at step (file:///home/runner/work/railcore/railcore/tools/route/fetch-sources.mjs:37:52)\n    at file:///home/runner/work/railcore/railcore/tools/route/fetch-sources.mjs:156:7",
+   "segundos": 0
+  },
+  "catastro": {
+   "ok": 6,
+   "teselas": 46,
+   "fail": 14,
+   "consultas": {
+    "parts": "&typenames=BU:BUILDINGPART"
+   },
+   "partes": 2761,
+   "edificios": 0,
+   "errors": {
+    "&typenames=BU:BUILDING": "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<!--Edificios de la D.G. del Catastro.-->\r\n<gml:FeatureCollection gml:id=\"ES.SDGC.BU\"  xmlns:ad=\"urn:x-inspire:specification:gmlas:Addresses:3.0\" xmlns:base=\"urn:x-inspire:specification:gmlas:BaseTypes:3.2\" xmlns:bu-base=\"http://inspire.jrc.ec.europa.eu/s",
+    "&typenames=bu-core2d:Building": "<?xml version='1.0' encoding=\"ISO-8859-1\" standalone=\"no\"?>\r\n<ExceptionReport xmlns=\"http://www.opengis.net/ows/1.1\" version=\"2.0.0\">\r\n<Exception exceptionCode=\"OperationProcessingFailed\">\r\n<ExceptionText><![CDATA[Parameter TYPENAMES not supported]]></ExceptionText>\r\n</Exception>\r\n</ExceptionReport>",
+    "&STOREDQUERY_ID=GetBuildingByBBox": "<?xml version='1.0' encoding=\"ISO-8859-1\" standalone=\"no\"?>\r\n<ExceptionReport xmlns=\"http://www.opengis.net/ows/1.1\" version=\"2.0.0\">\r\n<Exception exceptionCode=\"OperationProcessingFailed\">\r\n<ExceptionText><![CDATA[Paremter REFCAT can't be null]]></ExceptionText>\r\n</Exception>\r\n</ExceptionReport>\r\n",
+    "&STOREDQUERIE_ID=GETBUILDINGBYBBOX": "<?xml version='1.0' encoding=\"ISO-8859-1\" standalone=\"no\"?>\r\n<ExceptionReport xmlns=\"http://www.opengis.net/ows/1.1\" version=\"2.0.0\">\r\n<Exception exceptionCode=\"OperationProcessingFailed\">\r\n<ExceptionText><![CDATA[Paremter REFCAT can't be null]]></ExceptionText>\r\n</Exception>\r\n</ExceptionReport>\r\n",
+    "&typenames=BU:BUILDINGPART": "TimeoutError: The operation was aborted due to timeout",
+    "presupuesto": "tiempo agotado"
+   },
+   "segundos": 404
+  },
+  "gtfs": {
+   "ok": true,
+   "mb_zip": 15.9,
+   "rutas": [
+    "10T0001C1 C1 Principe Pio                            -Aeropuerto-T4",
+    "10T0002C1 C1 Aeropuerto-T4                           -Principe Pio",
+    "20T0001C1 C1 Gijon (Sanz Crespo)                     -Puente L.Fierros",
+    "20T0002C1 C1 Puente L.Fierros                        -Gijon (Sanz Crespo)",
+    "30T0001C1 C1 Lora del Rio                            -Lebrija",
+    "30T0002C1 C1 Lebrija                                 -Lora del Rio",
+    "31T0001C1 C1 Cádiz                                   -Aeropuerto de Jerez",
+    "31T0002C1 C1 Aeropuerto de Jerez                     -Cádiz",
+    "31T0007C1 C1 Jerez de la Frontera                    -Las Aletas",
+    "31T0008C1 C1 Las Aletas                              -Jerez de la Frontera",
+    "32T0001C1 C1 Málaga-Centro Alameda                   -Fuengirola",
+    "32T0002C1 C1 Fuengirola                              -Málaga-Centro Alameda",
+    "40T0001C1 C1 Valencia Nord                           -Platja i Grau de Gandia",
+    "40T0002C1 C1 Platja i Grau de Gandia                 -Valencia Nord",
+    "41T0001C1 C1 Murcia del Carmen                       -Alacant Terminal",
+    "41T0002C1 C1 Alacant Terminal                        -Murcia del Carmen",
+    "45T0001C1 C1 Cartagena                               -Los Nietos",
+    "45T0002C1 C1 Los Nietos                              -Cartagena",
+    "46T0001C1 C1 Ferrol                                  -Ortigueira",
+    "46T0002C1 C1 Ortigueira                              -Ferrol",
+    "47T0001C1 C1 Asunción-Universidad                    -Cistierna",
+    "47T0002C1 C1 Cistierna                               -Asunción-Universidad",
+    "60T0001C1 C1 Abando                                  -Santurtzi",
+    "60T0002C1 C1 Santurtzi                               -Abando",
+    "61T0001C1 C1 Irun                                    -Brincola",
+    "61T0002C1 C1 Brincola                                -Irun",
+    "61T0003C1 C1 Lezo-Renteria                           -Beasain",
+    "61T0005C1 C1 -Donostia-San Sebastian",
+    "61T0006C1 C1 Donostia-San Sebastian                  -",
+    "62T0001C1 C1 Santander                               -Reinosa"
+   ],
+   "viajes": 1840,
+   "paradas": 17,
+   "segundos": 20
   }
  }
 }

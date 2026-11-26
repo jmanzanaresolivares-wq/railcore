@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120" role="img" aria-label="Trazia">
+  <!-- Trazia: administrador de infraestructuras FICTICIO de RAILCORE. Diseño original. -->
+  <polygon points="56,10 106,110 6,110" fill="#2C3E73"/>
+  <path d="M44 104 L56 46 L68 104" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M46 92 H66 M49 78 H63 M52 64 H60" stroke="#E9EDF5" stroke-width="4"/>
+  <circle cx="56" cy="34" r="7" fill="#F2A900"/>
+  <text x="124" y="84" font-family="Segoe UI, Arial, sans-serif" font-size="60" font-weight="600" fill="#2C3E73" letter-spacing="4">TRAZIA</text>
+</svg>

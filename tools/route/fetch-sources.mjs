@@ -37,6 +37,7 @@ async function step(name, fn) {
   try { report.pasos[name] = { ok: true, ...(await fn()) }; }
   catch (e) { console.error('✖', name, e); report.pasos[name] = { ok: false, error: String(e && e.stack || e).slice(0, 2000) }; }
   report.pasos[name].segundos = Math.round((Date.now() - t0) / 1000);
+  fs.writeFileSync(path.join(OUT, 'informe-descarga.json'), JSON.stringify(report, null, 1));
   console.log('  →', JSON.stringify(report.pasos[name]).slice(0, 600));
 }
 
@@ -151,6 +152,26 @@ await step('pnoa', async () => {
   return { teselas: tiles.length, ok, fail, mb: +(bytes / 1e6).toFixed(1), firstErr };
 });
 
+/* ---------- 4b. Edificios de OpenStreetMap (respaldo; en España muchos vienen del Catastro) ---------- */
+await step('osmedificios', async () => {
+  // Por teselas de 1 km del corredor (consultas pequeñas, no bloquean Overpass)
+  const { fromUTM } = await import('./geo.mjs');
+  const tiles = corridorTiles(0), seen = new Map();
+  let fail = 0;
+  for (const t of tiles) {
+    const [ti, tj] = t.split('_').map(Number);
+    const [s1, w1] = fromUTM(ti * 1000, tj * 1000), [n1, e1] = fromUTM(ti * 1000 + 1000, tj * 1000 + 1000);
+    try {
+      const j = await overpass(`[out:json][timeout:90];way["building"](${s1.toFixed(6)},${w1.toFixed(6)},${n1.toFixed(6)},${e1.toFixed(6)});out body geom qt;`);
+      j.elements.forEach((e) => { if (e.type === 'way' && e.geometry && !seen.has(e.id)) seen.set(e.id, { id: e.id, t: { b: e.tags.building, l: e.tags['building:levels'], h: e.tags.height, n: e.tags.name }, g: e.geometry.map((p) => [+p.lat.toFixed(7), +p.lon.toFixed(7)]) }); });
+    } catch (e) { fail++; console.warn('  edificios', t, String(e).slice(0, 200)); }
+    await sleep(1500);
+  }
+  const out = [...seen.values()];
+  fs.writeFileSync(path.join(OUT, 'osm-edificios.json'), JSON.stringify(out));
+  return { teselas: tiles.length, fail, edificios: out.length, conPlantas: out.filter((b) => b.t.l).length };
+});
+
 /* ---------- 4. Catastro INSPIRE: partes de edificio con número de plantas ---------- */
 function parseGmlParts(xml) {
   const out = [];
@@ -179,8 +200,9 @@ await step('catastro', async () => {
     parts: ['&typenames=BU:BUILDINGPART', '&typenames=bu-ext2d:BuildingPart', '&STOREDQUERY_ID=GetBuildingPartByBBox', '&STOREDQUERIE_ID=GETBUILDINGPARTBYBBOX'],
     buildings: ['&typenames=BU:BUILDING', '&typenames=bu-core2d:Building', '&STOREDQUERY_ID=GetBuildingByBBox', '&STOREDQUERIE_ID=GETBUILDINGBYBBOX']
   };
-  const chosen = {};
+  const chosen = {}, deadline = Date.now() + 6 * 60 * 1000; // presupuesto: 6 minutos
   for (const t of tiles) {
+    if (Date.now() > deadline) { errors.presupuesto = 'tiempo agotado'; break; }
     if (fail >= 2 && !ok) break;
     const [ti, tj] = t.split('_').map(Number), E0 = ti * 1000, N0 = tj * 1000;
     for (const [kind, list] of [['parts', parts], ['buildings', buildings]]) {
@@ -189,7 +211,7 @@ await step('catastro', async () => {
       for (const v of tries) {
         for (const bb of [`${E0},${N0},${E0 + 1000},${N0 + 1000}`, `${N0},${E0},${N0 + 1000},${E0 + 1000}`]) {
           try {
-            const xml = await (await get(`${base}${v}&bbox=${bb}`, {}, 2)).text();
+            const xml = await (await get(`${base}${v}&bbox=${bb}`, { timeoutMs: 30000 }, 1)).text();
             if (!sample || (sample.length < 3000 && /posList/.test(xml))) sample = xml.slice(0, 6000);
             const g = parseGmlParts(xml);
             if (g.length) { got = g; chosen[kind] = v; break; }
@@ -208,26 +230,6 @@ await step('catastro', async () => {
   fs.writeFileSync(path.join(OUT, 'catastro-edificios.json'), JSON.stringify(uniq(buildings).map((b) => ({ id: b.id, u: b.u, f: b.f, r: b.r }))));
   if (sample) fs.writeFileSync(path.join(OUT, 'catastro-muestra.xml'), sample);
   return { teselas: tiles.length, ok, fail, consultas: chosen, partes: uniq(parts).length, edificios: uniq(buildings).length, errors };
-});
-
-/* ---------- 4b. Edificios de OpenStreetMap (respaldo; en España muchos vienen del Catastro) ---------- */
-await step('osmedificios', async () => {
-  // Por teselas de 1 km del corredor (consultas pequeñas, no bloquean Overpass)
-  const { fromUTM } = await import('./geo.mjs');
-  const tiles = corridorTiles(0), seen = new Map();
-  let fail = 0;
-  for (const t of tiles) {
-    const [ti, tj] = t.split('_').map(Number);
-    const [s1, w1] = fromUTM(ti * 1000, tj * 1000), [n1, e1] = fromUTM(ti * 1000 + 1000, tj * 1000 + 1000);
-    try {
-      const j = await overpass(`[out:json][timeout:90];way["building"](${s1.toFixed(6)},${w1.toFixed(6)},${n1.toFixed(6)},${e1.toFixed(6)});out body geom qt;`);
-      j.elements.forEach((e) => { if (e.type === 'way' && e.geometry && !seen.has(e.id)) seen.set(e.id, { id: e.id, t: { b: e.tags.building, l: e.tags['building:levels'], h: e.tags.height, n: e.tags.name }, g: e.geometry.map((p) => [+p.lat.toFixed(7), +p.lon.toFixed(7)]) }); });
-    } catch (e) { fail++; console.warn('  edificios', t, String(e).slice(0, 200)); }
-    await sleep(1500);
-  }
-  const out = [...seen.values()];
-  fs.writeFileSync(path.join(OUT, 'osm-edificios.json'), JSON.stringify(out));
-  return { teselas: tiles.length, fail, edificios: out.length, conPlantas: out.filter((b) => b.t.l).length };
 });
 
 /* ---------- 5. Horarios: GTFS de Renfe Cercanías ---------- */

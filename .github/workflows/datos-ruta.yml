@@ -35,9 +35,11 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Descargar fuentes
         run: node tools/route/fetch-sources.mjs
+        timeout-minutes: 40
         env:
           ONLY: ${{ github.event.inputs.only }}
       - name: Construir la ruta jugable (src/data/c1)
+        if: always()
         run: cd tools/route && node build-route.mjs
       - name: Mostrar informe
         if: always()

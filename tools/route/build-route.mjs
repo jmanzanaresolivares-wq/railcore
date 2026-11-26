@@ -401,8 +401,9 @@ for (const key of [...tileKeys].sort()) {
     if (z == null) z = demAt(E - 1, N - 1) ?? Z0;
     // Cerca de la vía: el terreno pasa a la cota de la plataforma (terraplén/desmonte suave)
     const p = project(E, N), x = xOf(p.s), ad = Math.abs(p.d);
-    if (x > X0 && x < X1 && ad < 70 && !inSpan(tunnels, x)) {
-      const ty = trackYAt(x) + Z0 - 1.2;
+    if (x > X0 && x < X1 && ad < 70) {
+      // En túnel el terreno cubre la bóveda (trinchera cubierta); fuera, plataforma de la vía
+      const ty = trackYAt(x) + Z0 + (inSpan(tunnels, x) ? 8.2 : -1.2);
       const w = ad < 14 ? 1 : 1 - (ad - 14) / 56;
       z = inSpan(bridges, x) ? Math.min(z, ty - 6) * w + z * (1 - w) : ty * w + z * (1 - w);
     }

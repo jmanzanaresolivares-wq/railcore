@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>RAILCORE — horneado de vegetación</title></head>
+<body style="margin:0;background:#000">
+<canvas id="c"></canvas>
+<script type="importmap">{ "imports": { "three": "/three/build/three.module.js", "three/addons/": "/three/examples/jsm/" } }</script>
+<script type="module">
+/* Página de horneado (la abre hornear.js en Chromium sin ventana). Para cada especie:
+ *  1. carga el glTF de Poly Haven y su mapa de alfa (las hojas son tarjetas recortadas);
+ *  2. centra el modelo en la base del tronco y redondea las normales de las hojas hacia la copa;
+ *  3. dibuja 8 vistas ortográficas alrededor del eje vertical: albedo, normales del objeto y
+ *     visibilidad del cielo (16 luces direccionales con sombras = oclusión ambiental);
+ *  4. reduce ×3 (antialias; «cobertura» engorda el follaje fino que se perdería), multiplica el
+ *     albedo por la oclusión, premultiplica el alfa en lineal y devuelve dos atlas WebP
+ *     (color+alfa y normales) y una vista previa PNG. */
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const VIEWS = 8, COLS = 4, ROWS = 2, SS = 3, NLIGHTS = 16;
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, preserveDrawingBuffer: true, premultipliedAlpha: false });
+renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.NoToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;
+renderer.setClearColor(0x000000, 0);
+const gl = renderer.getContext();
+
+const texLoader = new THREE.TextureLoader();
+function loadTex(url, srgb, ref) {
+  return new Promise((ok, ko) => texLoader.load(url, t => {
+    t.flipY = false;                                   // convención de glTF
+    t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    if (ref) { t.channel = ref.channel; t.offset.copy(ref.offset); t.repeat.copy(ref.repeat); t.rotation = ref.rotation; t.center.copy(ref.center); t.wrapS = ref.wrapS; t.wrapT = ref.wrapT; }
+    t.updateMatrix();
+    ok(t);
+  }, undefined, ko));
+}
+
+/* Mapa de alfa de un material: <material>_alpha, el indicado en el nombre de la imagen
+ * («difuso-alfa») o el del modelo. */
+function alphaFile(sp, mat) {
+  const c = [];
+  if (mat.name) c.push(mat.name + '_alpha_1k.jpg');
+  const im = (mat.map && mat.map.name) || '';
+  if (im.indexOf('-') > 0) c.push(im.split('-')[1] + '_1k.jpg');
+  if (mat.transparent || mat.alphaTest > 0) c.push(sp.asset + '_alpha_1k.jpg');
+  for (const f of c) if (sp.texturas.indexOf(f) >= 0) return f;
+  return null;
+}
+function dryFile(sp, mat) {
+  const c = [(mat.name || sp.asset) + '_dry_diff_1k.jpg', sp.asset + '_dry_diff_1k.jpg'];
+  for (const f of c) if (sp.texturas.indexOf(f) >= 0) return f;
+  return null;
+}
+
+const NORMAL_VS = `
+uniform mat3 uvT;
+varying vec3 vN; varying vec2 vUv;
+void main() {
+  vUv = (uvT * vec3(uv, 1.0)).xy;
+  vN = normalize(mat3(modelMatrix) * normal);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+const NORMAL_FS = `
+uniform sampler2D alphaMap; uniform bool useAlpha; uniform vec3 camDir; uniform float umbral;
+varying vec3 vN; varying vec2 vUv;
+void main() {
+  if (useAlpha && texture2D(alphaMap, vUv).g < umbral) discard;
+  vec3 n = normalize(vN);
+  if (dot(n, camDir) < 0.0) n = -n;                    // la cara visible de la hoja
+  gl_FragColor = vec4(n * 0.5 + 0.5, 1.0);
+}`;
+
+const srgb2lin = new Float32Array(256);
+for (let i = 0; i < 256; i++) { const c = i / 255; srgb2lin[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+function lin2srgb8(x) { x = x < 0 ? 0 : x > 1 ? 1 : x; return Math.round(255 * (x <= 0.0031308 ? x * 12.92 : 1.055 * Math.pow(x, 1 / 2.4) - 0.055)); }
+
+window.hornear = async function (sp) {
+  const t0 = performance.now();
+  const gltf = await new GLTFLoader().loadAsync('/modelos/' + sp.gltf);
+  gltf.scene.updateMatrixWorld(true);
+  let obj = gltf.scene;
+  if (sp.nodo) { obj = gltf.scene.getObjectByName(sp.nodo); if (!obj) throw new Error('no existe el nodo ' + sp.nodo); }
+  const holder = new THREE.Group(), scene = new THREE.Scene();
+  scene.add(holder);
+  if (obj !== gltf.scene) { obj.matrixWorld.decompose(obj.position, obj.quaternion, obj.scale); obj.parent.remove(obj); }
+  holder.add(obj);
+  holder.updateMatrixWorld(true);
+  const meshes = [];
+  holder.traverse(o => { if (o.isMesh) meshes.push(o); });
+
+  // ---- Materiales: albedo sin luz, oclusión (sólo sombras) y normales ----
+  let tris = 0;
+  for (const m of meshes) {
+    const src = m.material;
+    const aF = alphaFile(sp, src);
+    const alphaMap = aF ? await loadTex('/modelos/' + sp.asset + '/textures/' + aF, false, src.map) : null;
+    let map = src.map;
+    if (sp.seco) { const dF = dryFile(sp, src); if (dF) map = await loadTex('/modelos/' + sp.asset + '/textures/' + dF, true, src.map); }
+    const at = alphaMap ? (sp.umbral || 0.5) : 0;
+    m.userData.foliage = !!alphaMap;
+    m.userData.albedo = new THREE.MeshBasicMaterial({ map, color: src.color, alphaMap, alphaTest: at, side: THREE.DoubleSide, vertexColors: !!(sp.colorVertices && src.vertexColors) });
+    const ao = new THREE.MeshLambertMaterial({ color: 0xffffff, alphaMap, alphaTest: at, side: THREE.DoubleSide, shadowSide: THREE.DoubleSide });
+    ao.onBeforeCompile = s => { s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n\tnormal = directionalLights[ 0 ].direction;'); };
+    m.userData.ao = ao;
+    m.userData.normal = new THREE.ShaderMaterial({
+      uniforms: { alphaMap: { value: alphaMap }, useAlpha: { value: !!alphaMap }, uvT: { value: alphaMap ? alphaMap.matrix : new THREE.Matrix3() }, camDir: { value: new THREE.Vector3(0, 0, 1) }, umbral: { value: at || 0.5 } },
+      vertexShader: NORMAL_VS, fragmentShader: NORMAL_FS, side: THREE.DoubleSide });
+    m.castShadow = m.receiveShadow = true;
+    m.frustumCulled = false;
+    tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
+  }
+
+  // ---- Pivote en la base del tronco y medidas ----
+  const v = new THREE.Vector3();
+  let minY = Infinity, maxY = -Infinity;
+  for (const m of meshes) { const p = m.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y; } }
+  const Hm = maxY - minY, cut = minY + Math.max(0.02, Hm * 0.04);
+  let sx = 0, sz = 0, sn = 0;
+  for (const m of meshes) { if (m.userData.foliage) continue; const p = m.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); if (v.y < cut) { sx += v.x; sz += v.z; sn++; } } }
+  if (!sn) for (const m of meshes) { const p = m.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); if (v.y < cut) { sx += v.x; sz += v.z; sn++; } } }
+  holder.position.set(-sx / sn, 0, -sz / sn);
+  holder.updateMatrixWorld(true);
+  let R = 0;
+  for (const m of meshes) { const p = m.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); const r = Math.hypot(v.x, v.z); if (r > R) R = r; } }
+
+  // ---- Normales de las hojas redondeadas hacia la forma de la copa (elipsoide) ----
+  const box = new THREE.Box3();
+  for (const m of meshes) if (m.userData.foliage) { const p = m.geometry.attributes.position; for (let i = 0; i < p.count; i++) box.expandByPoint(v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld)); }
+  if (box.isEmpty()) box.setFromObject(holder);
+  const cc = box.getCenter(new THREE.Vector3()), hh = box.getSize(new THREE.Vector3()).multiplyScalar(0.5).max(new THREE.Vector3(0.05, 0.05, 0.05));
+  const e = new THREE.Vector3(), nw = new THREE.Vector3();
+  for (const m of meshes) {
+    const k = m.userData.foliage ? sp.suave : sp.suave * 0.3;
+    if (!k || !m.geometry.attributes.normal) continue;
+    const g = m.geometry, p = g.attributes.position, n = g.attributes.normal;
+    const nm = new THREE.Matrix3().getNormalMatrix(m.matrixWorld), nmInv = nm.clone().invert();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld);
+      e.set((v.x - cc.x) / (hh.x * hh.x), (v.y - cc.y) / (hh.y * hh.y), (v.z - cc.z) / (hh.z * hh.z)).normalize();
+      nw.fromBufferAttribute(n, i).applyMatrix3(nm).normalize();
+      if (nw.dot(e) < 0) nw.negate();
+      nw.multiplyScalar(1 - k).addScaledVector(e, k).normalize().applyMatrix3(nmInv).normalize();
+      n.setXYZ(i, nw.x, nw.y, nw.z);
+    }
+    n.needsUpdate = true;
+  }
+
+  // ---- Encuadre: todas las vistas con el mismo rectángulo (ancho 2R, de y0 a y0+h) ----
+  const y0 = Math.min(0, minY) - 0.01, W = 2 * R * 1.04 + 0.02, H = (maxY - y0) * 1.03 + 0.01;
+  const aspect = W / H, px = sp.px || 256;
+  const r4 = x => Math.max(16, Math.round(x / 4) * 4);
+  const cw = aspect >= 1 ? px : r4(px * aspect), ch = aspect >= 1 ? r4(px / aspect) : px;
+  const w2 = cw * SS, h2 = ch * SS;
+  renderer.setSize(w2, h2, false);
+  const D = R * 4 + 10;
+  const cam = new THREE.OrthographicCamera(-W / 2, W / 2, y0 + H, y0, Math.max(0.01, D - R * 1.3 - 1), D + R * 1.3 + 1);
+  function setView(k) {
+    const th = k * 2 * Math.PI / VIEWS;
+    cam.position.set(Math.sin(th) * D, 0, Math.cos(th) * D);
+    cam.up.set(0, 1, 0); cam.lookAt(0, 0, 0); cam.updateMatrixWorld();
+    const dir = new THREE.Vector3(Math.sin(th), 0, Math.cos(th));
+    for (const m of meshes) m.userData.normal.uniforms.camDir.value.copy(dir);
+  }
+  function use(kind) { for (const m of meshes) m.material = m.userData[kind]; }
+  function grab() { const b = new Uint8Array(w2 * h2 * 4); gl.readPixels(0, 0, w2, h2, gl.RGBA, gl.UNSIGNED_BYTE, b); return b; }
+
+  // 1) albedo (sRGB) y 2) normales
+  const alb = [], nor = [], aoAcc = [];
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  use('albedo');
+  for (let k = 0; k < VIEWS; k++) { setView(k); renderer.render(scene, cam); alb.push(grab()); }
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+  use('normal');
+  for (let k = 0; k < VIEWS; k++) { setView(k); renderer.render(scene, cam); nor.push(grab()); aoAcc.push(new Float32Array(w2 * h2)); }
+
+  // 3) visibilidad del cielo: luces repartidas por la bóveda (coseno), cada una con su sombra
+  use('ao');
+  const light = new THREE.DirectionalLight(0xffffff, Math.PI);
+  light.castShadow = true;
+  light.shadow.mapSize.set(2048, 2048);
+  const Rs = Math.hypot(R, H / 2) * 1.05, ctr = new THREE.Vector3(0, y0 + H / 2, 0);
+  Object.assign(light.shadow.camera, { left: -Rs, right: Rs, top: Rs, bottom: -Rs, near: 0.05, far: 4 * Rs });
+  light.shadow.camera.updateProjectionMatrix();
+  light.shadow.bias = -0.0006; light.shadow.normalBias = 0.0;
+  scene.add(light); scene.add(light.target); light.target.position.copy(ctr);
+  for (let j = 0; j < NLIGHTS; j++) {
+    const u = (j + 0.5) / NLIGHTS, rr = Math.sqrt(u), ph = j * 2.39996323;
+    const d = new THREE.Vector3(rr * Math.cos(ph), Math.sqrt(1 - u), rr * Math.sin(ph));
+    light.position.copy(ctr).addScaledVector(d, 2 * Rs);
+    light.updateMatrixWorld(); light.target.updateMatrixWorld();
+    renderer.shadowMap.needsUpdate = true;
+    for (let k = 0; k < VIEWS; k++) {
+      setView(k); renderer.render(scene, cam);
+      const b = grab(), acc = aoAcc[k];
+      for (let i = 0, n = w2 * h2; i < n; i++) acc[i] += b[i * 4] / 255 / NLIGHTS;
+    }
+  }
+
+  // ---- Composición del atlas (reducción ×3, oclusión, alfa premultiplicado en lineal) ----
+  const AW = COLS * cw, AH = ROWS * ch;
+  const col = new Uint8ClampedArray(AW * AH * 4), nrm = new Float32Array(AW * AH * 3), ok = new Uint8Array(AW * AH);
+  const AO_MIN = sp.aoMin !== undefined ? sp.aoMin : 0.28, tint = sp.tinte || [1, 1, 1];
+  for (let k = 0; k < VIEWS; k++) {
+    const ox = (k % COLS) * cw, oy = Math.floor(k / COLS) * ch, A = alb[k], N = nor[k], O = aoAcc[k];
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+      let sa = 0, r = 0, g = 0, b = 0, nx = 0, ny = 0, nz = 0, ao = 0;
+      for (let sy = 0; sy < SS; sy++) for (let sx2 = 0; sx2 < SS; sx2++) {
+        const row = h2 - 1 - (y * SS + sy), i = row * w2 + x * SS + sx2, q = i * 4;
+        const a = A[q + 3] / 255;
+        if (a <= 0) continue;
+        sa += a; r += srgb2lin[A[q]] * a; g += srgb2lin[A[q + 1]] * a; b += srgb2lin[A[q + 2]] * a;
+        nx += (N[q] / 255 * 2 - 1) * a; ny += (N[q + 1] / 255 * 2 - 1) * a; nz += (N[q + 2] / 255 * 2 - 1) * a;
+        ao += O[i] * a;
+      }
+      const o = (oy + y) * AW + ox + x;
+      if (sa <= 0) continue;
+      const alpha = Math.min(1, sa / (SS * SS) * (sp.cobertura || 1)), f = (AO_MIN + (1 - AO_MIN) * Math.min(1, ao / sa)) / sa;
+      col[o * 4] = lin2srgb8(r * f * tint[0] * alpha); col[o * 4 + 1] = lin2srgb8(g * f * tint[1] * alpha); col[o * 4 + 2] = lin2srgb8(b * f * tint[2] * alpha);
+      col[o * 4 + 3] = Math.round(alpha * 255);
+      const nl = Math.hypot(nx, ny, nz) || 1;
+      nrm[o * 3] = nx / nl; nrm[o * 3 + 1] = ny / nl; nrm[o * 3 + 2] = nz / nl; ok[o] = 1;
+    }
+  }
+  // Normales: se extienden hacia los píxeles transparentes (para que el filtrado no mezcle basura)
+  for (let pass = 0; pass < 6; pass++) {
+    const add = [];
+    for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) {
+      const o = y * AW + x; if (ok[o]) continue;
+      let nx = 0, ny = 0, nz = 0, c = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= AW || yy >= AH) continue;
+        const q = yy * AW + xx; if (!ok[q]) continue;
+        nx += nrm[q * 3]; ny += nrm[q * 3 + 1]; nz += nrm[q * 3 + 2]; c++;
+      }
+      if (c) { const l = Math.hypot(nx, ny, nz) || 1; add.push(o, nx / l, ny / l, nz / l); }
+    }
+    for (let i = 0; i < add.length; i += 4) { const o = add[i]; nrm[o * 3] = add[i + 1]; nrm[o * 3 + 1] = add[i + 2]; nrm[o * 3 + 2] = add[i + 3]; ok[o] = 1; }
+  }
+  const nb = new Uint8ClampedArray(AW * AH * 4);
+  for (let o = 0; o < AW * AH; o++) {
+    let nx = nrm[o * 3], ny = nrm[o * 3 + 1], nz = nrm[o * 3 + 2];
+    if (!ok[o]) { const k = Math.floor((o % AW) / cw) + COLS * Math.floor(Math.floor(o / AW) / ch), th = k * 2 * Math.PI / VIEWS; nx = Math.sin(th); ny = 0; nz = Math.cos(th); }
+    nb[o * 4] = Math.round((nx * 0.5 + 0.5) * 255); nb[o * 4 + 1] = Math.round((ny * 0.5 + 0.5) * 255); nb[o * 4 + 2] = Math.round((nz * 0.5 + 0.5) * 255); nb[o * 4 + 3] = 255;
+  }
+  function toUrl(data, type, q) {
+    const c = document.createElement('canvas'); c.width = AW; c.height = AH;
+    c.getContext('2d').putImageData(new ImageData(data, AW, AH), 0, 0);
+    return c.toDataURL(type, q);
+  }
+  // Vista previa: color sobre gris (arriba) y normales (abajo)
+  const pv = new Uint8ClampedArray(AW * AH * 2 * 4);
+  for (let o = 0; o < AW * AH; o++) {
+    const a = col[o * 4 + 3] / 255;
+    for (let c = 0; c < 3; c++) pv[o * 4 + c] = lin2srgb8(srgb2lin[col[o * 4 + c]] + srgb2lin[150] * (1 - a));
+    pv[o * 4 + 3] = 255;
+    for (let c = 0; c < 4; c++) pv[(o + AW * AH) * 4 + c] = nb[o * 4 + c];
+  }
+  const pc = document.createElement('canvas'); pc.width = AW; pc.height = AH * 2;
+  pc.getContext('2d').putImageData(new ImageData(pv, AW, AH * 2), 0, 0);
+  if (sp.depurar) {   // vista 0 en bruto: albedo, normales y oclusión (para revisar el horneado)
+    const dc = document.createElement('canvas'); dc.width = w2 * 3; dc.height = h2;
+    const dd = new Uint8ClampedArray(w2 * 3 * h2 * 4);
+    for (let y = 0; y < h2; y++) for (let x = 0; x < w2; x++) {
+      const i = (h2 - 1 - y) * w2 + x;
+      for (let c = 0; c < 4; c++) { dd[(y * w2 * 3 + x) * 4 + c] = alb[0][i * 4 + c]; dd[(y * w2 * 3 + x + w2) * 4 + c] = nor[0][i * 4 + c]; }
+      const ao = Math.round(aoAcc[0][i] * 255);
+      dd[(y * w2 * 3 + x + 2 * w2) * 4] = dd[(y * w2 * 3 + x + 2 * w2) * 4 + 1] = dd[(y * w2 * 3 + x + 2 * w2) * 4 + 2] = ao; dd[(y * w2 * 3 + x + 2 * w2) * 4 + 3] = 255;
+    }
+    dc.getContext('2d').putImageData(new ImageData(dd, w2 * 3, h2), 0, 0);
+    pc.width = dc.width; pc.height = dc.height; pc.getContext('2d').drawImage(dc, 0, 0);
+  }
+  return {
+    color: toUrl(col, 'image/webp', sp.calidad || 0.86),
+    normal: toUrl(nb, 'image/webp', sp.calidadN || 0.82),
+    previa: pc.toDataURL('image/png'),
+    meta: { w: +W.toFixed(3), h: +H.toFixed(3), y0: +y0.toFixed(3), views: VIEWS, cols: COLS, rows: ROWS, cw, ch, atlasW: AW, atlasH: AH },
+    info: Math.round(tris).toLocaleString('es') + ' triángulos, ' + ((performance.now() - t0) / 1000).toFixed(0) + ' s en la página'
+  };
+};
+window.listo = true;
+</script>
+</body></html>

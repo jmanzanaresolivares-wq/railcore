@@ -113,6 +113,7 @@ Todos los mandos del pupitre también se pueden pulsar con el ratón.
 - `tools/captura/` — capturas automáticas del juego y banco de pruebas del tren, para revisar
   cambios visuales sin abrir el juego.
 - `assets/textures/` — texturas CC0 de Poly Haven (ver `CREDITS.md`); `tools/embed-textures.js` las incrusta en `src/data/textures-data.js`.
+- `assets/vegetacion/` — árboles, matas y hierba: modelos CC0 de Poly Haven horneados en impostores de 8 vistas con `tools/vegetacion/` (ver `CREDITS.md`); `src/ui3d/vegetation3d.js` los planta donde la ortofoto muestra copas y prados.
 - `electron/` — envoltorio de escritorio para generar el `.exe`.
 - `tests/` — pruebas: física, enclavamientos, ASFA, señales, determinismo y tres servicios
   completos conducidos por el maquinista automático sin ninguna falta.

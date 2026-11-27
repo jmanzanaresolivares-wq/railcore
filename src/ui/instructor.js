@@ -12,7 +12,9 @@
     { txt: 'Cierre el DISYUNTOR (necesita catenaria y manipulador fuera de tracción)', done: function (s) { return s.train.elec.disyuntor; } },
     { txt: 'Compresor principal en AUTO: espere ≥ 6 bar en el depósito principal', done: function (s) { return s.train.air.mr >= 6 && s.train.elec.mainCompSwitch === 'auto'; } },
     { txt: 'Conecte el ASFA (botón CONEXIÓN) y espere el autotest', done: function (s) { return s.asfa.connected; } },
-    { txt: 'Encienda los FAROS (cruce)', done: function (s) { return s.train.controls.headlights > 0; } },
+    { txt: 'Encienda los FAROS (cruce), las LUCES DE POSICIÓN y los PILOTOS DE COLA (panel de techo)', done: function (s) { var c = s.train.controls; return c.headlights > 0 && c.markers && c.tailLights; } },
+    { txt: 'Ponga el DESTINO del servicio (' + 'consola de megafonía, a la izquierda)', done: function (s) { return s.service.dest === s.service.expectedDest; } },
+    { txt: 'Conecte la CLIMATIZACIÓN del salón antes de que suban los viajeros (panel de techo)', done: function (s) { return s.train.hvac.salonOn; } },
     { txt: 'Abra las puertas del lado DERECHO para que suban los viajeros', done: function (s) { return s.stations[0].boarded > 0 || s.nextStation > 0; } },
     { txt: 'Afloje el FRENO DE ESTACIONAMIENTO', done: function (s) { return !s.train.air.parking; } },
     { txt: 'Comunique «tren preparado» por radio', done: function (s) { return !!s.radioFlags.ready; } },
@@ -30,6 +32,19 @@
     }
     if (a.pendingRec) return '¡Baliza ASFA! Pulse RECONOCER (Q) antes de 3 segundos.';
     if (sim.vigil.warning) return 'Hombre muerto: pulse VIGILANCIA (Espacio) ya.';
+    if (t.adhesion.slipping) return 'Las ruedas patinan: el antipatinaje ya reduce la tracción. Baje un punto de tracción o use el ARENADO (mantenga A).';
+    if (t.adhesion.sliding) return 'Las ruedas deslizan al frenar: afloje un poco el freno y use el ARENADO (mantenga A). Cuente con más distancia de parada.';
+    if (t.screen.fog > 0.35 && TR.controlPower(t)) return t.controls.demister ? 'El parabrisas se está desempañando (luneta térmica conectada).' : 'Parabrisas empañado: conecte la LUNETA TÉRMICA (D o panel de techo).';
+    var rain = sim.weather && sim.weather.rain > 0;
+    if (rain && t.controls.wipers === 0 && Math.abs(t.v) > 1) return 'Está lloviendo: ponga el LIMPIAPARABRISAS (K).';
+    if (t.screen.dirt > 0.3 && TR.controlPower(t)) return 'Parabrisas sucio: use el LAVAPARABRISAS (Mayús + K) con el limpiaparabrisas.';
+    // Avisos de baja prioridad (sólo si no hay nada más urgente)
+    var low = '', c = sim.comms;
+    if (c && c.channel !== c.zone && TR.controlPower(t)) low = 'Radio en el canal ' + c.channel + ': esta zona se atiende por el canal ' + c.zone + '. Cámbielo (F8 o CANAL +/− en la radio).';
+    else if (sim.tcms && TR.controlPower(t)) {
+      var al = RC.core.tcms.activeList(sim).filter(function (x) { return x.level === 'A' && !x.ack; })[0];
+      if (al) low = 'TCMS: ' + al.text.toLowerCase() + '. Revise la pantalla de estado (tecla 0: averías; 0 otra vez reconoce la alarma).';
+    }
     if (a.control && a.control.code === 'L1') return 'Anuncio de parada: la siguiente señal está en rojo. Reduzca a ' + a.control.vFinal + ' km/h y prepárese para parar.';
     if (a.control && a.control.code === 'L7') return 'Señal en rojo a 300 m: no supere ' + Math.round(a.limit_kmh) + ' km/h y pare antes de ella.';
     var i = sim.nextStation;
@@ -55,7 +70,7 @@
     }
     var lim = RC.core.timetable.trackLimitKmh(sim.line, t.x, sim.spec.length_m);
     if (U.kmh(Math.abs(t.v)) > lim + 2) return 'Exceso de velocidad: la vía está limitada a ' + lim + ' km/h.';
-    return '';
+    return low;
   }
 
   function render(root, sim, show) {

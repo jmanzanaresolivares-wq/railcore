@@ -31,13 +31,13 @@
         battery: ready,
         battV: ready ? 78 : 0,
         battSoc: ready ? 0.93 : 0.8,  // estado de carga de las baterías (0…1)
-        charging: false,              // cargador alimentado por el convertidor estático
-        auxPower: false,              // convertidor estático en marcha (necesita catenaria y disyuntor)
+        charging: ready,              // cargador alimentado por el convertidor estático
+        auxPower: ready,              // convertidor estático en marcha (necesita catenaria y disyuntor)
         cabKey: ready,
         pantoCmd: ready,
         pantoPos: ready ? 1 : 0,   // 0 bajado … 1 en contacto
         disyuntor: ready,
-        lineV: 0,
+        lineV: ready ? spec.catenaryNominal_V : 0,
         auxCompressor: false,
         mainCompSwitch: 'auto',     // 'auto' | 'off'
         mainCompRunning: false

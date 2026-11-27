@@ -37,6 +37,39 @@
     // Puertas
     doorTime_s: 3.0,
     doorsPerSide: 10,                       // [Verificar]
-    boardingRatePerDoor_pps: 0.8            // viajeros por segundo y puerta
+    boardingRatePerDoor_pps: 0.8,           // viajeros por segundo y puerta
+
+    // ---------- Sistemas de cabina (cifras aproximadas [Verificar]) ----------
+    // Adherencia rueda-carril: Curtius–Kniffler μ = 0,161 + 7,5/(v + 44) en carril seco
+    adhesiveMassFraction: 0.6,              // masa sobre ejes motores / masa total [Verificar]
+    antiSlipMargin: 0.93,                   // el control de patinaje deja la tracción al 93 % del límite
+    wspMargin: 0.90,                        // el antideslizamiento deja el freno al 90 % del límite
+    sandAdhesionGain: 1.7,                  // el arena multiplica la adherencia del carril mojado [Verificar]
+    // Areneros: 4 depósitos en los bogies extremos [Verificar]
+    sandCapacity_kg: 120,
+    sandFlow_kgps: 0.12,                    // caudal total con todos los areneros abiertos
+    sandMinAir_bar: 5.0,                    // el arenado es neumático: necesita depósito principal
+    sandAutoTime_s: 3.0,                    // arenado automático tras detectar patinaje/deslizamiento
+    // Freno eléctrico de recuperación (mezclado con el neumático) [Verificar]
+    edMax_kN: 140,
+    edPower_kW: 2400,
+    edRamp_kNs: 70,
+    edFadeFrom_kmh: 3, edFadeTo_kmh: 9,     // por debajo se desvanece y entra el neumático
+    // Regulador de velocidad
+    regStep_kmh: 5,
+    regBrakeMax: 0.45,                      // freno máximo que puede pedir el regulador (fracción del servicio)
+    // Baterías y convertidor estático [Verificar]
+    batteryCapacity_kWh: 11.5,              // 160 Ah a 72 V
+    batteryChargeRate_kW: 3.0,
+    controlLoad_kW: 0.45,                   // electrónica de control y pantallas
+    // Climatización
+    cabHvacRate_Cps: 0.035,                 // °C/s máximo que aporta la climatización de cabina
+    salonHvacRate_Cps: 0.018,
+    salonSetpoint_C: 22,
+    cabLoss_s: 1800, salonLoss_s: 2600,     // constantes de tiempo de pérdidas hacia el exterior
+    // Parabrisas
+    washerTank_L: 8,
+    washerFlow_Lps: 0.04,
+    washerSpray_s: 2.5
   };
 })(globalThis.RC);

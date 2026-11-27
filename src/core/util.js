@@ -51,5 +51,14 @@
     if (clock > set) return Math.max(-18, -(clock - set) / 3600 * 11);
     return maxEl * Math.sin(Math.PI * (clock - rise) / (set - rise));
   };
+  /* Temperatura exterior aproximada en Sevilla a finales de noviembre (°C). [aprox.]
+   * Mínima ~8 °C hacia las 07:45 y máxima ~19 °C hacia las 15:00. */
+  U.outsideTemp = function (clock) {
+    var tMin = U.parseClock('07:45:00'), tMax = U.parseClock('15:00:00'), lo = 8, hi = 19;
+    var c = ((clock % 86400) + 86400) % 86400, f;
+    if (c >= tMin && c <= tMax) f = (c - tMin) / (tMax - tMin);                   // subiendo
+    else f = 1 - ((c - tMax + 86400) % 86400) / (86400 - (tMax - tMin));          // bajando
+    return lo + (hi - lo) * (0.5 - 0.5 * Math.cos(Math.PI * f));
+  };
   RC.core.util = U;
 })(globalThis.RC);

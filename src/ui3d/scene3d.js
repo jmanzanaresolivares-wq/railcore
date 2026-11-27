@@ -1,5 +1,6 @@
 /* RAILCORE — Escena 3D: render, cielo físico con hora del día, luces, faros,
- * cámara en primera persona dentro de la cabina, y ratón sobre los mandos. */
+ * cámara en primera persona dentro de la cabina (con ratón sobre los mandos) y dos
+ * vistas desde fuera: «exterior» (girar alrededor del tren) y «junto a la vía». */
 (function (RC) {
   var U = RC.core.util, W3 = RC.ui3d.world;
 
@@ -33,12 +34,16 @@
     head.target.position.set(0, 0.0, -80); rig.add(head.target);
 
     var look = { yaw: 0, pitch: -0.3, tYaw: 0, tPitch: -0.3, fov: 66 };
-    var S = { renderer: renderer, scene: scene, camera: camera, world: world, cab: cab, rig: rig, sky: sky, sun: sun, hemi: hemi, head: head, look: look, sim: sim, hover: null, active: null, send: send, opts: opts || {} };
+    // Vistas exteriores: 0 cabina, 1 exterior (órbita), 2 junto a la vía
+    var ext = { mode: 0, yaw: 0.62, pitch: 0.14, dist: 30, fov: 34, side: null };
+    var S = { renderer: renderer, scene: scene, camera: camera, world: world, cab: cab, rig: rig, sky: sky, sun: sun, hemi: hemi, head: head, look: look, ext: ext, sim: sim, hover: null, active: null, send: send, opts: opts || {} };
+    S.traffic = RC.ui3d.traffic ? RC.ui3d.traffic.create(scene, world, sim) : null;
 
     // ---------- Ratón ----------
     var ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tip = document.getElementById('tip3d');
     var dragLook = null, leverDrag = null;
     function pick(ev) {
+      if (ext.mode > 0) return null;
       var r = canvas.getBoundingClientRect();
       mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(mouse, camera);
@@ -48,6 +53,7 @@
     canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     canvas.addEventListener('mousedown', function (e) {
       if (!S.sim) return;
+      if (ext.mode > 0) { dragLook = { x: e.clientX, y: e.clientY, yaw: ext.yaw, pitch: ext.pitch, ext: true }; return; }
       if (e.button === 2 || e.button === 1) { dragLook = { x: e.clientX, y: e.clientY, yaw: look.tYaw, pitch: look.tPitch }; return; }
       var c = pick(e);
       if (!c) { dragLook = { x: e.clientX, y: e.clientY, yaw: look.tYaw, pitch: look.tPitch, left: true }; return; }
@@ -61,6 +67,11 @@
       S.active = null; dragLook = null; leverDrag = null;
     });
     canvas.addEventListener('mousemove', function (e) {
+      if (dragLook && dragLook.ext) {
+        ext.yaw = dragLook.yaw - (e.clientX - dragLook.x) * 0.006;
+        ext.pitch = U.clamp(dragLook.pitch + (e.clientY - dragLook.y) * 0.004, 0.02, 1.3);
+        tip.style.display = 'none'; return;
+      }
       if (dragLook) {
         look.tYaw = U.clamp(dragLook.yaw + (e.clientX - dragLook.x) * 0.004, -1.9, 1.3);
         look.tPitch = U.clamp(dragLook.pitch + (e.clientY - dragLook.y) * 0.004, -1.1, 0.5);
@@ -85,7 +96,10 @@
     canvas.addEventListener('wheel', function (e) {
       e.preventDefault();
       if (!S.sim) return;
-      var c = pick(e), dir = e.deltaY < 0 ? 1 : -1;
+      var dir = e.deltaY < 0 ? 1 : -1;
+      if (ext.mode === 1) { ext.dist = U.clamp(ext.dist * (dir > 0 ? 0.88 : 1.14), 7, 220); return; }
+      if (ext.mode === 2) { ext.fov = U.clamp(ext.fov - dir * 4, 12, 70); return; }
+      var c = pick(e);
       if (c && c.wheel) { c.wheel(S.sim, S.send, dir); return; }
       look.fov = U.clamp(look.fov - dir * 4, 28, 75);
     }, { passive: false });
@@ -99,10 +113,79 @@
       var v = [[0, -0.3], [1.3, -0.3], [0, -0.85], [-0.75, -0.2]][n] || [0, -0.3];
       look.tYaw = v[0]; look.tPitch = v[1];
     };
+    /* Cambia de vista: 0 cabina, 1 exterior, 2 junto a la vía (yaw opcional para la órbita). */
+    S.setExterior = function (m, yaw) {
+      ext.mode = (m | 0) % 3; ext.side = null;
+      if (yaw !== undefined && !isNaN(yaw)) ext.yaw = yaw;
+      tip.style.display = 'none';
+      canvas.style.cursor = ext.mode ? 'grab' : 'default';
+      return VIEW_NAMES[ext.mode];
+    };
+    S.cycleView = function () { return S.setExterior(ext.mode + 1); };
+    S.viewName = function () { return VIEW_NAMES[ext.mode]; };
     return S;
   }
 
-  function setSim(S, sim) { S.sim = sim; }
+  var VIEW_NAMES = ['Cabina', 'Exterior', 'Junto a la vía'];
+  function setSim(S, sim) { S.sim = sim; S.ext.side = null; S.zones = null; }
+
+  function inTunnel(line, x) {
+    var t = line.tunnels || [];
+    for (var i = 0; i < t.length; i++) if (x > t[i].from - 5 && x < t[i].to + 5) return true;
+    return false;
+  }
+  /* Espacio cerrado alrededor de la vía en x (túnel, estación subterránea o nave de Santa Justa):
+   * la cámara exterior se queda dentro para no ver el tren a través de paredes. */
+  function enclosure(S, line, x, o2) {
+    var Z = S.zones || (S.zones = RC.ui3d.stations ? RC.ui3d.stations.zones(line) : []);
+    for (var i = 0; i < Z.length; i++) {
+      var z = Z[i];
+      if (z.kind === 'shed' && x > z.x0 && x < z.x1 - 4) return { l: o2 - 1.72 - z.pw + 0.6, r: 1.72 + z.pw - 0.6, h: 8.3 };
+      if (z.kind === 'underground' && x > z.x0 && x < z.x1) return { l: o2 - 1.72 - z.pw + 0.6, r: 1.72 + z.pw - 0.6, h: 6.5 };
+    }
+    return inTunnel(line, x) ? { l: o2 - 3.6, r: 3.6, h: 6.3 } : null;
+  }
+  var _v = new THREE.Vector3(), _w = new THREE.Vector3();
+  /* Coloca la cámara de las vistas exteriores (en coordenadas del mundo). */
+  function exteriorCamera(S, sim, dt) {
+    var E = S.ext, cam = S.camera, al = S.world.al, t = sim.train, line = sim.line;
+    var len = S.traffic && S.traffic.own ? S.traffic.own.length : 98.6, off2 = S.world.off2 || function () { return -4.3; };
+    var target, pos;
+    if (E.mode === 1) {
+      var fx = t.x - 14, F = W3.frame(al, fx);
+      target = _v.set(F.x, F.y + 2.3, F.z);
+      var dx = F.fx * Math.cos(E.yaw) + F.rx * Math.sin(E.yaw), dz = F.fz * Math.cos(E.yaw) + F.rz * Math.sin(E.yaw);
+      pos = _w.set(target.x + dx * Math.cos(E.pitch) * E.dist, target.y + Math.sin(E.pitch) * E.dist, target.z + dz * Math.cos(E.pitch) * E.dist);
+    } else {
+      // junto a la vía: la cámara se adelanta al tren y lo ve pasar; luego salta más adelante
+      var v = Math.abs(t.v);
+      if (!E.side || t.x - len > E.side.x + 35 || E.side.x - t.x > 900 || t.x < E.side.x - 1400) {
+        var ax = t.x + 60 + Math.min(240, v * 6), tun = inTunnel(line, ax);
+        E.side = { x: ax, lat: tun ? 3.0 : 6.2, up: 2.3 };
+      }
+      var Fs = W3.frame(al, E.side.x);
+      pos = _w.set(Fs.x + Fs.rx * E.side.lat, Fs.y + E.side.up, Fs.z + Fs.rz * E.side.lat);
+      var lx = U.clamp(E.side.x - 6, t.x - len + 8, t.x - 4), Ft = W3.frame(al, lx);
+      target = _v.set(Ft.x, Ft.y + 2.2, Ft.z);
+    }
+    // No meterse bajo tierra ni atravesar las paredes del túnel
+    var Fh = W3.frame(al, t.x), xc = t.x + (pos.x - Fh.x) * Fh.fx + (pos.z - Fh.z) * Fh.fz, Fc = W3.frame(al, xc);
+    var lat = (pos.x - Fc.x) * Fc.rx + (pos.z - Fc.z) * Fc.rz;
+    var box = enclosure(S, line, xc, off2(xc));
+    if (box) {
+      var lc = U.clamp(lat, box.l, box.r);
+      pos.set(Fc.x + Fc.rx * lc, Math.min(Math.max(pos.y, Fc.y + 0.8), Fc.y + box.h), Fc.z + Fc.rz * lc);
+    } else {
+      var hT = RC.ui3d.realworld && RC.ui3d.realworld.heightAt(S.world, pos.x, pos.z);
+      var floorY = Math.max(Fc.y + 0.6, hT === null || hT === undefined ? -1e9 : hT + 1.0);
+      if (pos.y < floorY) pos.y = floorY;
+    }
+    cam.position.copy(pos);
+    cam.up.set(0, 1, 0);
+    cam.lookAt(target);
+    var fov = E.mode === 1 ? 50 : E.fov;
+    if (Math.abs(cam.fov - fov) > 0.05) { cam.fov += (fov - cam.fov) * Math.min(1, dt * 8); cam.updateProjectionMatrix(); }
+  }
 
 
   function render(S, sim, opts, dt, realTime) {
@@ -119,11 +202,22 @@
     var pitchAcc = U.clamp(-t.a * 0.004, -0.006, 0.006);
     S.rig.rotation.set(pitchAcc, -F.heading, Math.sin(realTime * 1.3) * 0.004 * Math.min(1, v / 25), 'YXZ');
 
-    // Cámara (mirada suavizada)
-    var L = S.look;
-    L.yaw += (L.tYaw - L.yaw) * Math.min(1, dt * 10); L.pitch += (L.tPitch - L.pitch) * Math.min(1, dt * 10);
-    S.camera.rotation.set(L.pitch, L.yaw, 0, 'YXZ');
-    if (Math.abs(S.camera.fov - L.fov) > 0.05) { S.camera.fov += (L.fov - S.camera.fov) * 0.2; S.camera.updateProjectionMatrix(); }
+    // Cámara: en cabina (mirada suavizada) o fuera del tren
+    var exterior = S.ext.mode > 0, cam = S.camera;
+    S.cab.group.visible = !exterior;
+    var near = exterior ? 0.3 : 0.05;
+    if (cam.near !== near) { cam.near = near; cam.updateProjectionMatrix(); }
+    if (exterior) {
+      if (cam.parent !== S.scene) S.scene.add(cam);
+      exteriorCamera(S, sim, dt);
+    } else {
+      if (cam.parent !== S.rig) { S.rig.add(cam); cam.position.copy(RC.ui3d.cab.EYE); }
+      var L = S.look;
+      L.yaw += (L.tYaw - L.yaw) * Math.min(1, dt * 10); L.pitch += (L.tPitch - L.pitch) * Math.min(1, dt * 10);
+      cam.rotation.set(L.pitch, L.yaw, 0, 'YXZ');
+      if (Math.abs(cam.fov - L.fov) > 0.05) { cam.fov += (L.fov - cam.fov) * 0.2; cam.updateProjectionMatrix(); }
+    }
+    var camPos = exterior ? cam.position : S.rig.position;
 
     // Sol según la hora (Sevilla, finales de noviembre, aprox.)
     var elevDeg = U.sunElevation(sim.clock);
@@ -158,8 +252,9 @@
     S.head.intensity = power && hl ? (hl === 2 ? 900 : 380) * (0.3 + night) : 0;
     S.head.distance = hl === 2 ? 700 : 300;
 
-    W3.update(S.world, sim, night);
-    RC.ui3d.cab.update(S.cab, sim, opts, performance.now());
+    W3.update(S.world, sim, night, camPos);
+    if (S.traffic) RC.ui3d.traffic.update(S.traffic, sim, { night: night, cam: camPos, exterior: exterior });
+    if (!exterior) RC.ui3d.cab.update(S.cab, sim, opts, performance.now());
     S.renderer.render(S.scene, S.camera);
   }
 

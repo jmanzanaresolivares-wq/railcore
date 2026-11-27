@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>RAILCORE — banco de pruebas del tren</title>
+<style>html,body{margin:0;height:100%;background:#000}canvas{display:block;width:100%;height:100%}</style></head>
+<body><canvas id="c"></canvas>
+<script src="../../src/core/namespace.js"></script>
+<script src="../../src/core/util.js"></script>
+<script src="../../src/data/brand.js"></script>
+<script src="../../vendor/three.min.js"></script>
+<script src="../../vendor/three-sky.js"></script>
+<script src="../../src/data/textures-data.js"></script>
+<script src="../../src/ui3d/world3d.js"></script>
+<script src="../../src/ui3d/emu3d.js"></script>
+<script>
+/* Banco de pruebas: un tren sobre vía recta con cielo y reflejos, para revisar el modelo exterior.
+ * Parámetros en la URL: cam=x,y,z  mira=x,y,z  puertas=0..1  panto=0..1  noche=0..1  faros=0..2 */
+(function () {
+  var q = new URLSearchParams(location.search);
+  function v3(s, d) { var a = (s || d).split(',').map(Number); return new THREE.Vector3(a[0], a[1], a[2]); }
+  var canvas = document.getElementById('c');
+  var r = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  r.setSize(innerWidth, innerHeight, false); r.outputColorSpace = THREE.SRGBColorSpace;
+  r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = +(q.get('exp') || 0.5);
+  var scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(+(q.get('fov') || 45), innerWidth / innerHeight, 0.05, 5000);
+  var night = +(q.get('noche') || 0);
+  var sky = new THREE.Sky(); sky.scale.setScalar(4000); scene.add(sky);
+  var su = sky.material.uniforms; su.turbidity.value = 5; su.rayleigh.value = 1.6; su.mieCoefficient.value = 0.006; su.mieDirectionalG.value = 0.82;
+  var el = night ? -8 : +(q.get('sol') || 28), az = 2.0;
+  var sd = new THREE.Vector3(Math.cos(el * Math.PI / 180) * Math.sin(az), Math.sin(el * Math.PI / 180), -Math.cos(el * Math.PI / 180) * Math.cos(az));
+  su.sunPosition.value.copy(sd);
+  var sun = new THREE.DirectionalLight(0xfff1dc, night ? 0 : 1.7); sun.position.copy(sd).multiplyScalar(100); scene.add(sun);
+  scene.add(new THREE.HemisphereLight(0xbfd6ff, 0x4a4632, night ? 0.12 : 0.45));
+  var pm = new THREE.PMREMGenerator(r), es = new THREE.Scene(), sky2 = new THREE.Sky(); sky2.scale.setScalar(1000); es.add(sky2);
+  for (var k in su) sky2.material.uniforms[k].value = su[k].value;
+  scene.environment = pm.fromScene(es).texture;
+  // vía recta: x de la línea ↔ −z del mundo
+  var n = 2000, G = { px: [], pz: [], py: [] };
+  for (var i = 0; i < n; i++) { var x = -800 + i * 5; G.px.push(0); G.pz.push(-x); G.py.push(0); }
+  var W3 = RC.ui3d.world, al = W3.buildAlignment({ geometry: G });
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x8c8a78, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.2; scene.add(ground);
+  var bal = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.2, 400), new THREE.MeshStandardMaterial({ color: 0x7b766d, roughness: 1 })); bal.position.y = -0.1; scene.add(bal);
+  [-0.834, 0.834].forEach(function (x) { var rl = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.17, 400), new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.9, roughness: 0.3 })); rl.position.set(x, 0.085, 0); scene.add(rl); });
+  var wire = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 400), new THREE.MeshBasicMaterial({ color: 0x222222 })); wire.position.set(0, 5.6, 0); scene.add(wire);
+  var T = RC.ui3d.emu.create({ dest: q.get('destino') || 'Utrera' }); scene.add(T.group);
+  RC.ui3d.emu.setNight(night);
+  cam.position.copy(v3(q.get('cam'), '9,3,-58')); cam.lookAt(v3(q.get('mira'), '0,2,-40'));
+  function draw() {
+    RC.ui3d.emu.update(T, { al: al, x: +(q.get('x') || 50), dir: +(q.get('dir') || 1), doorsL: +(q.get('puertas') || 0), doorsR: +(q.get('puertasD') || 0),
+      panto: +(q.get('panto') || 1), head: +(q.get('faros') || 1), tail: true, night: night, cam: cam.position });
+    r.render(scene, cam);
+  }
+  draw(); setTimeout(draw, 300); setTimeout(function () { draw(); window.__listo = true; }, 900);
+})();
+</script></body></html>

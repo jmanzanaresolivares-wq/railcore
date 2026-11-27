@@ -1,6 +1,6 @@
 # RAILCORE
 
-Simulador ferroviario de conducción realista. Este es el **prototipo 0.1**: una Renfe Civia en
+Simulador ferroviario de conducción realista. Este es el **prototipo 0.5**: una Renfe Civia en
 Cercanías Sevilla C-1, de **Sevilla-Santa Justa a Utrera**, con arranque en frío, cabina
 funcional, física del tren, señales y ASFA.
 
@@ -23,8 +23,8 @@ Ver `assets/brand/README.md` (incluye cómo cambiar de paquete de marca).
 ## Cómo jugar en Windows (.exe)
 
 1. Entra en la pestaña **Releases** del repositorio (columna derecha de la página principal en GitHub).
-2. Descarga **`RAILCORE-0.1.0-portable.exe`** (no necesita instalación) o
-   **`RAILCORE-0.1.0-instalador.exe`** (crea un acceso directo).
+2. Descarga **`RAILCORE-0.5.0-portable.exe`** (no necesita instalación) o
+   **`RAILCORE-0.5.0-instalador.exe`** (crea un acceso directo).
 3. Ábrelo con doble clic. Como el programa no está firmado, Windows puede mostrar
    «Windows protegió su PC»: pulsa **Más información → Ejecutar de todas formas**.
 
@@ -42,8 +42,20 @@ También se puede jugar sin instalar nada abriendo `index.html` en Chrome o Edge
   basculan, los pulsadores se hunden y se iluminan. Botón derecho del ratón para mirar
   alrededor; teclas 1-4 para mirar al frente, al armario, al pupitre o a la ventanilla.
 - **Mundo 3D** con curvas y rampas, balasto, traviesas, carriles, catenaria, señales que cambian
-  de aspecto, balizas, andenes con viajeros, edificios, olivares, cielo físico según la hora,
-  amanecer, faros y limpiaparabrisas. Texturas reales CC0 de Poly Haven.
+  de aspecto, balizas, edificios, olivares, cielo físico según la hora, amanecer, faros y
+  limpiaparabrisas. Texturas reales CC0 de Poly Haven.
+- **El tren visto desde fuera** (tecla **V**): unidad de 5 coches con los colores de Ferronda,
+  morro redondeado, puertas que se abren de verdad, pantógrafo que sube y baja, ruedas que giran,
+  faros, pilotos rojos, rótulo de destino y luz interior de noche. Vista «exterior» (arrastre
+  para girar alrededor, rueda para acercar) y vista «junto a la vía» (la cámara ve pasar el tren).
+- **Estaciones de la C-1** construidas con los datos de la ruta: andenes laterales o centrales
+  con borde de seguridad y banda táctil, marquesinas con luz, bancos, papeleras, farolas,
+  carteles con la marca Trazia, pantallas de próximos trenes y relojes con la hora del juego,
+  cartelón de parada y viajeros. San Bernardo es subterránea (paredes de azulejo) y Santa Justa
+  tiene una gran nave abovedada.
+- **Tráfico**: el tren precedente es una unidad completa que abre puertas en las estaciones, y
+  por la vía 2 vienen trenes hacia Santa Justa cada 20 minutos (sólo ambiente, no afectan a las
+  señales).
 - **Hora de salida a elegir**: amanecer, mediodía, atardecer o noche.
 
 - **Tres escenarios**: arranque en frío en Santa Justa, tren preparado en Santa Justa y
@@ -80,6 +92,7 @@ También se puede jugar sin instalar nada abriendo `index.html` en Chrome o Edge
 | H · L · B | Bocina · faros · freno de estacionamiento |
 | T · P · F1 | Acelerar tiempo · pausa · ayuda |
 | F11 | Pantalla completa (en el .exe) |
+| V | Cambiar de vista: cabina / exterior / junto a la vía |
 | 1 / 2 / 3 / 4 | Cabina 3D: frente / armario de servicios / pupitre / ventanilla |
 | Botón derecho + arrastrar | Mirar alrededor en la cabina 3D |
 
@@ -94,7 +107,11 @@ Todos los mandos del pupitre también se pueden pulsar con el ratón.
   muerto, enclavamientos) es determinista y está separada de la presentación y de la radio.
 - `src/data/` — datos del tren, de la línea y del ASFA, con las cifras pendientes de verificar.
 - `src/ui/` — cabina, vista frontal, esquema de línea, sonido sintetizado e instructor.
-- `src/ui3d/` — cabina y mundo 3D (Three.js r158, incluido en `vendor/`, MIT).
+- `src/ui3d/` — cabina y mundo 3D (Three.js r158, incluido en `vendor/`, MIT): tren por fuera
+  (`emu3d.js`), estaciones (`stations3d.js`), trenes en la vía (`traffic3d.js`), terreno y
+  edificios reales (`realworld3d.js`).
+- `tools/captura/` — capturas automáticas del juego y banco de pruebas del tren, para revisar
+  cambios visuales sin abrir el juego.
 - `assets/textures/` — texturas CC0 de Poly Haven (ver `CREDITS.md`); `tools/embed-textures.js` las incrusta en `src/data/textures-data.js`.
 - `electron/` — envoltorio de escritorio para generar el `.exe`.
 - `tests/` — pruebas: física, enclavamientos, ASFA, señales, determinismo y tres servicios
@@ -109,6 +126,6 @@ Ver [`docs/DATOS-A-VERIFICAR.md`](docs/DATOS-A-VERIFICAR.md).
 
 ## Modelos y marcas reales
 
-La cabina 3D es un modelo original inspirado en la disposición de un puesto de conducción de
-Cercanías; no reproduce planos del fabricante. Los modelos exactos de la Civia (CAD de CAF/Alstom),
+La cabina 3D y el tren visto desde fuera son modelos originales inspirados en un tren de
+Cercanías moderno; no reproducen planos del fabricante ni ninguna librea real. Los modelos exactos de la Civia (CAD de CAF/Alstom),
 sus texturas oficiales y los logotipos de Renfe y Adif necesitarían licencia de sus propietarios.

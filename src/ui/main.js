@@ -52,6 +52,7 @@
     ['M', 'Silenciar sonido'],
     ['I', 'Mostrar / ocultar instructor'],
     ['F1', 'Esta ayuda'],
+    ['V', 'Cambiar de vista: cabina / exterior (arrastre para girar, rueda para acercar) / junto a la vía'],
     ['1 / 2 / 3 / 4', 'Cabina 3D: mirar al frente / armario de servicios (izquierda) / pupitre / ventanilla'],
     ['Botón derecho (arrastrar)', 'Cabina 3D: mirar alrededor. Rueda: zoom (o mover el mando bajo el ratón)'],
     ['Ratón', 'Todos los mandos del pupitre se pueden pulsar. La rueda sobre el manipulador lo mueve.']
@@ -128,7 +129,11 @@
     if (k === 'm') { audio.enabled = !audio.enabled; toast(audio.enabled ? 'Sonido activado' : 'Sonido silenciado', 'info'); return; }
     if (k === 'i') { state.opts.instructor = !state.opts.instructor; $('instructorCard').style.display = state.opts.instructor ? '' : 'none'; return; }
     if (k === 't') { cycleSpeed(); return; }
-    if (state.scene3d && state.opts.cab3d && ['1', '2', '3', '4'].indexOf(k) >= 0) { state.scene3d.setView(+k - 1); return; }
+    if (state.scene3d && state.opts.cab3d && ['1', '2', '3', '4'].indexOf(k) >= 0) {
+      if (state.scene3d.ext.mode) state.scene3d.setExterior(0);
+      state.scene3d.setView(+k - 1); return;
+    }
+    if (k === 'v' && state.scene3d && state.opts.cab3d) { toast('Vista: ' + state.scene3d.cycleView(), 'info'); return; }
     var t = state.sim.train;
     var map = {
       'w': { type: 'leverStep', delta: 1 }, 'arrowup': { type: 'leverStep', delta: 1 },

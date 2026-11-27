@@ -1,6 +1,6 @@
 /* RAILCORE — Mundo 3D (Three.js): trazado de la vía con curvas y rampas,
- * balasto, carriles, traviesas, catenaria, señales, balizas, estaciones,
- * viajeros, edificios, olivares, cartelones y tren precedente.
+ * balasto, carriles, traviesas, catenaria, señales, balizas, edificios, olivares
+ * y cartelones. Las estaciones están en stations3d.js y los trenes en traffic3d.js.
  * Sólo presentación: lee la simulación, nunca la modifica.
  * Ejes: X derecha, Y arriba, el tren avanza hacia −Z. */
 (function (RC) {
@@ -93,11 +93,14 @@
     return obj;
   }
 
-  /* Cinta a lo largo de la vía entre dos desplazamientos laterales. */
+  /* Valor fijo o función de x (para desplazamientos que cambian a lo largo de la vía). */
+  function val(v, x) { return typeof v === 'function' ? v(x) : v; }
+
+  /* Cinta a lo largo de la vía entre dos desplazamientos laterales (números o funciones de x). */
   function ribbon(al, x0, x1, step, offL, offR, upL, upR, material, vScale) {
     var pos = [], uv = [], idx = [], k = 0;
     for (var x = x0; x <= x1 + 1e-6; x += step) {
-      var a = at(al, x, offL, upL), b = at(al, x, offR, upR);
+      var a = at(al, x, val(offL, x), val(upL, x)), b = at(al, x, val(offR, x), val(upR, x));
       pos.push(a.x, a.y, a.z, b.x, b.y, b.z);
       var v = (x - x0) / (vScale || 10);
       uv.push(0, v, 1, v);
@@ -159,12 +162,35 @@
 
   function G_X1(line) { return X0 + (line.geometry.px.length - 1) * STEP; }
 
+  /* Desplazamiento de la vía 2 respecto a la vía 1 (negativo = a la izquierda).
+   * En las estaciones con andén a la izquierda del tren, la vía 2 se separa para dejar
+   * un andén central entre las dos vías, con transiciones suaves. */
+  var ISLAND_W = 6.0, EDGE = 1.72, TRANS = 180;
+  function makeOff2(line) {
+    var isl = (line.stations || []).filter(function (st) { return st.side === 'izquierda'; }).map(function (st) {
+      return { x0: st.stopX - st.platformLength - 12, x1: st.stopX + 25 };
+    });
+    var wide = -(EDGE + ISLAND_W + EDGE);
+    function smooth(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
+    return function (x) {
+      var o = TRACK2;
+      for (var i = 0; i < isl.length; i++) {
+        var r = isl[i];
+        if (x <= r.x0 - TRANS || x >= r.x1 + TRANS) continue;
+        var k = x < r.x0 ? smooth((x - (r.x0 - TRANS)) / TRANS) : x > r.x1 ? smooth((r.x1 + TRANS - x) / TRANS) : 1;
+        o = Math.min(o, TRACK2 + (wide - TRACK2) * k);
+      }
+      return o;
+    };
+  }
+
   /* ---------- Construcción del mundo ---------- */
   function build(scene, sim) {
     var line = sim.line;
     X1 = line.geometry ? G_X1(line) : 31000;
     var al = buildAlignment(line);
-    var W = { al: al, scene: scene, signals: [], stations: [], dyn: {} };
+    var off2 = makeOff2(line);
+    var W = { al: al, scene: scene, signals: [], stations: [], dyn: {}, off2: off2 };
     var root = new THREE.Group(); scene.add(root); W.root = root;
 
     var T = RC.ui3d.pbr;
@@ -186,45 +212,56 @@
 
     // Terreno: ancha cinta que sigue el perfil, algo por debajo del carril
     if (line.real) {   // con terreno real sólo la plataforma de la vía; el resto lo pone realworld3d
-      root.add(ribbon(al, X0, X1, 10, TRACK2 - 4.2, 4.2, -0.9, -0.9, M.ground, 40));
+      root.add(ribbon(al, X0, X1, 10, function (x) { return off2(x) - 4.2; }, 4.2, -0.9, -0.9, M.ground, 40));
     } else root.add(ribbon(al, X0, X1, 20, -700, 700, -0.9, -0.9, M.ground, 40));
     // Balasto y carriles de las dos vías
-    root.add(ribbon(al, X0, X1, 10, TRACK2 + 1.4, -1.4, 0, 0, M.ballast, 1.5));   // entrevía
-    [0, TRACK2].forEach(function (off) {
-      if (off !== 0) root.add(ribbon(al, X0, X1, 10, off - 2.2, off - 1.4, -0.85, 0, M.ballast, 1.2));
-      root.add(ribbon(al, X0, X1, 10, off - 1.4, off + 1.4, 0, 0, M.ballast, 2.8));
-      if (off === 0) root.add(ribbon(al, X0, X1, 10, off + 1.4, off + 2.2, 0, -0.85, M.ballast, 1.2));
+    root.add(ribbon(al, X0, X1, 10, function (x) { return off2(x) + 1.4; }, -1.4, 0, 0, M.ballast, 1.5));   // entrevía
+    function shift(f, d) { return typeof f === 'function' ? function (x) { return f(x) + d; } : f + d; }
+    [0, off2].forEach(function (off) {
+      var two = off !== 0;
+      if (two) root.add(ribbon(al, X0, X1, 10, shift(off, -2.2), shift(off, -1.4), -0.85, 0, M.ballast, 1.2));
+      root.add(ribbon(al, X0, X1, 10, shift(off, -1.4), shift(off, 1.4), 0, 0, M.ballast, 2.8));
+      if (!two) root.add(ribbon(al, X0, X1, 10, 1.4, 2.2, 0, -0.85, M.ballast, 1.2));
       [-GAUGE, GAUGE].forEach(function (ro) {
-        root.add(ribbon(al, X0, X1, 5, off + ro - 0.036, off + ro + 0.036, 0.172, 0.172, M.rail, 10));
-        root.add(ribbon(al, X0, X1, 5, off + ro - 0.036, off + ro - 0.036, 0.0, 0.17, M.railSide, 10));
-        root.add(ribbon(al, X0, X1, 5, off + ro + 0.036, off + ro + 0.036, 0.17, 0.0, M.railSide, 10));
+        root.add(ribbon(al, X0, X1, 5, shift(off, ro - 0.036), shift(off, ro + 0.036), 0.172, 0.172, M.rail, 10));
+        root.add(ribbon(al, X0, X1, 5, shift(off, ro - 0.036), shift(off, ro - 0.036), 0.0, 0.17, M.railSide, 10));
+        root.add(ribbon(al, X0, X1, 5, shift(off, ro + 0.036), shift(off, ro + 0.036), 0.17, 0.0, M.railSide, 10));
       });
     });
     // Traviesas: piscina instanciada que se recoloca alrededor del tren
     var SLEEPERS = 1900;
     var slGeo = new THREE.BoxGeometry(2.6, 0.12, 0.24);
-    W.sleepers = [0, TRACK2].map(function (off) {
+    W.sleepers = [0, off2].map(function (off) {
       var im = new THREE.InstancedMesh(slGeo, M.sleeper, SLEEPERS);
       im.frustumCulled = false; im.userData.off = off; root.add(im); return im;
     });
 
-    // Catenaria: postes cada 60 m, ménsulas y hilo de contacto
+    // Catenaria: postes cada 60 m, ménsulas y hilo de contacto. En los andenes laterales los postes
+    // van detrás del andén; bajo la nave de Santa Justa y en la estación subterránea el hilo cuelga del techo.
+    var Zs = RC.ui3d.stations ? RC.ui3d.stations.zones(line) : [];
+    function zoneAtX(x) { for (var i = 0; i < Zs.length; i++) if (x > Zs[i].x0 - 5 && x < Zs[i].x1 + 5) return Zs[i]; return null; }
     var poleGeo = new THREE.BoxGeometry(0.25, 7.6, 0.25), armGeo = new THREE.BoxGeometry(4.0, 0.12, 0.12);
     var polesN = Math.ceil((X1 - X0) / 60) * 2;
     var poles = new THREE.InstancedMesh(poleGeo, M.pole, polesN), arms = new THREE.InstancedMesh(armGeo, M.pole, polesN);
     var dummy = new THREE.Object3D(), k = 0;
     for (var px = X0; px < X1; px += 60) {
-      [[3.6, 0.4], [TRACK2 - 3.6, TRACK2 + 0.4 - 0.8]].forEach(function (pp, side) {
+      var zz = zoneAtX(px);
+      if (zz && zz.kind !== 'surface') continue;
+      var o2p = off2(px), sidePl = zz && !zz.island;
+      [[sidePl ? 1.72 + zz.pw + 0.6 : 3.6, -0.3], [sidePl ? o2p - 1.72 - zz.pw - 0.6 : o2p - 3.6, o2p + 0.3]].forEach(function (pp) {
         place(dummy, al, px, pp[0], 3.8); dummy.updateMatrix(); poles.setMatrixAt(k, dummy.matrix);
-        place(dummy, al, px, side === 0 ? 1.7 : TRACK2 - 1.7, 6.9); dummy.updateMatrix(); arms.setMatrixAt(k, dummy.matrix);
+        var len = Math.abs(pp[0] - pp[1]);
+        place(dummy, al, px, (pp[0] + pp[1]) / 2, 6.9); dummy.scale.set(len / 4.0, 1, 1); dummy.updateMatrix(); arms.setMatrixAt(k, dummy.matrix);
+        dummy.scale.set(1, 1, 1);
         k++;
       });
     }
+    poles.count = k; arms.count = k;
     root.add(poles); root.add(arms);
-    [0, TRACK2].forEach(function (off) {
+    [0, off2].forEach(function (off) {
       [5.6, 6.8].forEach(function (hh) {
         var pts = [];
-        for (var x = X0; x <= X1; x += 15) pts.push(at(al, x, off, hh));
+        for (var x = X0; x <= X1; x += 15) pts.push(at(al, x, val(off, x), hh));
         var g = new THREE.BufferGeometry().setFromPoints(pts);
         root.add(new THREE.Line(g, M.wire));
       });
@@ -255,49 +292,6 @@
     // Balizas ASFA (cajas amarillas entre carriles)
     var bGeo = new THREE.BoxGeometry(0.5, 0.1, 0.35), bMat = new THREE.MeshLambertMaterial({ color: 0xe8b400 });
     sim.beacons.forEach(function (b) { root.add(place(new THREE.Mesh(bGeo, bMat), al, b.x, 0, 0.12)); });
-
-    // Estaciones
-    var personGeo = new THREE.CylinderGeometry(0.2, 0.22, 1.7, 8);
-    var personMat = new THREE.MeshLambertMaterial({ vertexColors: false, color: 0xffffff });
-    line.stations.forEach(function (st, idx) {
-      var side = st.side === 'derecha' ? 1 : -1;
-      var inner = side > 0 ? 1.72 : TRACK2 - 1.72, outer = side > 0 ? 8.5 : TRACK2 - 8.5;
-      var x0 = st.stopX - st.platformLength, x1 = st.stopX + 15;
-      // Superficie, borde amarillo y cara del andén
-      root.add(ribbon(al, x0, x1, 5, side > 0 ? inner : outer, side > 0 ? outer : inner, 0.95, 0.95, M.platform, 6));
-      root.add(ribbon(al, x0, x1, 5, side > 0 ? inner : inner - 0.4, side > 0 ? inner + 0.4 : inner, 0.955, 0.955, M.platformEdge, 6));
-      root.add(ribbon(al, x0, x1, 5, inner, inner, side > 0 ? 0.95 : 0, side > 0 ? 0 : 0.95, M.concrete, 6));
-      // Marquesina con pilares
-      var cx0 = st.stopX - 170, cx1 = st.stopX - 20, mid = side * 4.6 + (side > 0 ? 0 : TRACK2);
-      var roof = ribbon(al, cx0, cx1, 5, mid - 3.2, mid + 3.2, 4.4, 4.2, M.canopy, 6);
-      roof.material = M.canopy; root.add(roof);
-      for (var cx = cx0; cx <= cx1; cx += 15) {
-        var pil = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 0.2), M.pole);
-        root.add(place(pil, al, cx, mid, 2.65));
-      }
-      // Cartel con el nombre (a ambos lados de la marquesina)
-      [st.stopX - 40, st.stopX - 150].forEach(function (sx) {
-        var sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.6), new THREE.MeshBasicMaterial({ map: textTex(st.name, { w: 1024, h: 146, size: 0.5, bg: RC.data.brand ? RC.data.brand.signage.stationBg : undefined }), side: THREE.DoubleSide }));
-        root.add(place(sign, al, sx, mid, 3.6));
-      });
-      // Cartelón de parada «P»
-      var stopSign = new THREE.Group();
-      var sp = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.6, 6), M.pole); sp.position.y = 0.8; stopSign.add(sp);
-      var sb = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), new THREE.MeshBasicMaterial({ map: textTex('P', { bg: '#ffffff', fg: '#c00000', w: 128, h: 128, size: 0.8, border: '#c00000' }) }));
-      sb.position.y = 1.7; sb.position.z = 0.02; stopSign.add(sb);
-      root.add(place(stopSign, al, st.stopX, side > 0 ? 2.3 : TRACK2 - 2.3, 0.95));
-      // Viajeros esperando
-      var people = new THREE.InstancedMesh(personGeo, personMat, 90);
-      var rng = U.rng(idx * 97 + 3), col = new THREE.Color(), d = new THREE.Object3D();
-      var palette = [0xc0392b, 0x2e6fd1, 0xe0e0e0, 0xb7863a, 0x3c9a4b, 0x555555, 0x7d3c98, 0x1b1b1b];
-      for (var p = 0; p < 90; p++) {
-        var ppx = st.stopX - 12 - rng() * (st.platformLength - 30), off = inner + side * (1.0 + rng() * 5.5);
-        place(d, al, ppx, off, 0.95 + 0.85); d.updateMatrix(); people.setMatrixAt(p, d.matrix);
-        people.setColorAt(p, col.setHex(palette[p % palette.length]));
-      }
-      people.count = 0; root.add(people);
-      W.stations.push({ st: st, idx: idx, people: people });
-    });
 
     // Edificios en zona urbana y olivares en el campo (deterministas)
     var rngB = U.rng(42);
@@ -377,34 +371,19 @@
       root.add(place(g, al, lm.x, 0, 0));
     });
 
-    // Tren precedente (vista por detrás) con la librea de la marca activa
-    var liv = RC.data.brand && RC.data.brand.livery;
-    var ghost = new THREE.Group();
-    var body = new THREE.Mesh(new THREE.BoxGeometry(2.9, 3.0, sim.line.precedingTrain.length_m), new THREE.MeshLambertMaterial({ color: liv ? brandHex(liv.body) : 0xe9ecef }));
-    body.position.y = 2.6; ghost.add(body);
-    var stripe = new THREE.Mesh(new THREE.BoxGeometry(2.92, 0.35, sim.line.precedingTrain.length_m), new THREE.MeshLambertMaterial({ color: liv ? brandHex(liv.lower) : 0x8b1a3a }));
-    stripe.position.y = 1.8; ghost.add(stripe);
-    var glass = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.0), new THREE.MeshLambertMaterial({ color: 0x1d2733 }));
-    glass.position.set(0, 3.3, sim.line.precedingTrain.length_m / 2 + 0.01); ghost.add(glass);
-    [-1.05, 1.05].forEach(function (lx) {
-      var tl = new THREE.Mesh(new THREE.CircleGeometry(0.12, 12), new THREE.MeshBasicMaterial({ color: 0xff2020 }));
-      tl.position.set(lx, 1.5, sim.line.precedingTrain.length_m / 2 + 0.02); ghost.add(tl);
-      var sp2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xff2020, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-      sp2.position.copy(tl.position); sp2.position.z += 0.1; sp2.scale.set(1.2, 1.2, 1); ghost.add(sp2);
-    });
-    root.add(ghost); W.ghost = ghost;
-
     if (line.real && RC.ui3d.realworld) RC.ui3d.realworld.build(W, sim);
+    if (RC.ui3d.stations) RC.ui3d.stations.build(W, sim);
     return W;
   }
 
   /* ---------- Actualización por fotograma ---------- */
-  function update(W, sim, night) {
+  function update(W, sim, night, cam) {
     var al = W.al, x = sim.train.x;
     // Traviesas alrededor del tren
     var d = new THREE.Object3D(), start = Math.floor((x - 60) / 0.6) * 0.6;
     W.sleepers.forEach(function (im) {
-      for (var i = 0; i < im.count; i++) { place(d, al, start + i * 0.6, im.userData.off, 0.0); d.updateMatrix(); im.setMatrixAt(i, d.matrix); }
+      var off = im.userData.off;
+      for (var i = 0; i < im.count; i++) { var xx = start + i * 0.6; place(d, al, xx, val(off, xx), 0.0); d.updateMatrix(); im.setMatrixAt(i, d.matrix); }
       im.instanceMatrix.needsUpdate = true;
     });
     // Aspectos de señales
@@ -420,20 +399,13 @@
         L.spr.scale.set(sc, sc, 1);
       }
     });
-    // Viajeros en el andén
-    W.stations.forEach(function (s) {
-      var ss = sim.stations[s.idx];
-      var waiting = !ss.arrived && s.idx > 0 ? s.st.waiting : Math.max(0, (ss.toBoard || 0) - (ss.boarded || 0));
-      if (s.idx === 0 && !ss.depTime) waiting = Math.max(0, ss.toBoard - ss.boarded);
-      s.people.count = Math.min(90, waiting);
-    });
-    // Tren precedente
-    W.ghost.visible = !!sim.ghost.active && Math.abs(sim.ghost.x - x) < 4000;
-    if (W.ghost.visible) place(W.ghost, al, sim.ghost.x - sim.ghost.length / 2, 0, 0);
+    // Estaciones (viajeros, luces, relojes y pantallas)
+    if (RC.ui3d.stations) RC.ui3d.stations.update(W, sim, night, cam);
     if (W.real) RC.ui3d.realworld.update(W, sim, night);
     else W.buildingMat.emissiveIntensity = night * 1.2;
   }
 
   RC.ui3d = RC.ui3d || {};
-  RC.ui3d.world = { ribbon: ribbon, build: build, update: update, frame: frame, at: at, place: place, buildAlignment: buildAlignment, textTex: textTex, canvasTex: canvasTex, glowTex: glowTex };
+  RC.ui3d.world = { ribbon: ribbon, build: build, update: update, frame: frame, at: at, place: place, buildAlignment: buildAlignment,
+    textTex: textTex, canvasTex: canvasTex, glowTex: glowTex, val: val, brandHex: brandHex, TRACK2: TRACK2, GAUGE: GAUGE, X0: X0, STEP: STEP };
 })(globalThis.RC);

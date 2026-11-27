@@ -113,7 +113,8 @@
         var t = new THREE.Texture(img); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.needsUpdate = true;
         // La ortofoto ya trae la luz del día: parte se pinta como emisiva para no apagarla
         mat.map = t; mat.emissiveMap = t; mat.emissive.setHex(0xffffff); mat.emissiveIntensity = R.orthoGlow;
-        mat.color.setHex(0xffffff); mat.needsUpdate = true; tile.ortho = true;
+        mat.color.setHex(0xffffff); mat.needsUpdate = true; tile.ortho = true; tile.tex = t;
+        var bt = R.bTiles[key]; if (bt && bt.roofs && RC.ui3d.buildings) RC.ui3d.buildings.setOrtho(bt.roofs, t);
       };
       img.src = d;
     });
@@ -132,7 +133,31 @@
   }
 
   /* ---------- Edificios del Catastro, agrupados por tesela ---------- */
-  function buildBuildings(R, key, list) {
+  /* ¿Se queda fuera este edificio? (los que pisan el andén o la playa de vías de una estación) */
+  function skipBuilding(R, near, b) {
+    if (!near.length || !R.zones.length) return false;
+    var ring = b.p, cx = 0, cz = 0; ring.forEach(function (q) { cx += q[0]; cz += q[1]; }); cx /= ring.length; cz /= ring.length;
+    var Lb = locate(R, near, cx, cz), zb = Lb && zoneAt(R, Lb.x, 20);
+    if (zb && zb.kind !== 'underground' && RC.ui3d.stations) {
+      var cb = RC.ui3d.stations.corridor(zb, R.off2(Lb.x));
+      if (Lb.lat > cb.l - 1 && Lb.lat < cb.r + 1) return true;
+      if (b.o && zb.kind === 'shed' && Math.abs(Lb.lat) < 60) return true;
+    }
+    return false;
+  }
+  function buildBuildings(R, key, bt) {
+    var B3 = RC.ui3d.buildings, near = tileTrack(R, key);
+    if (B3 && RC.data.facades) {
+      var res = B3.build(R, key, bt.list, function (b) { return skipBuilding(R, near, b); }, tileOrigin(R.line, key));
+      if (!res) return null;
+      if (res.walls) R.group.add(res.walls);
+      if (res.roofs) { R.group.add(res.roofs); var tt = R.tiles[key]; if (tt && tt.tex) B3.setOrtho(res.roofs, tt.tex); }
+      bt.walls = res.walls; bt.roofs = res.roofs;
+      return res.walls || res.roofs;
+    }
+    return buildBuildingsFlat(R, key, bt.list);
+  }
+  function buildBuildingsFlat(R, key, list) {
     var line = R.line, M = R.M, near = tileTrack(R, key);
     var pos = [], col = [], idx = [], base = 0, c = new THREE.Color();
     var palette = [0xf3efe6, 0xefe2c6, 0xe8cf9c, 0xdcb07a, 0xf6f3ee, 0xcf9a6b, 0xe4e1da];
@@ -250,17 +275,20 @@
     var motor = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.35, 1.2), new THREE.MeshStandardMaterial({ color: 0x4e5a3a, roughness: 0.8 }));
     (line.switches || []).forEach(function (sw) { R.group.add(W3m.place(motor.clone(), al, sw.x, sw.side > 0 ? 2.2 : off2(sw.x) - 2.2, 0.2)); });
 
+    R.hd = RC.ui3d.orthohd ? RC.ui3d.orthohd.create(R) : null;   // ortofoto de 0,3 m/píxel junto a la vía
     W.real = R; RC.ui3d.realworld.last = R;
     update(W, sim, 0, true);
     return R;
   }
 
   /* Carga/descarga de teselas alrededor del tren (radio en km). */
-  function update(W, sim, night, force) {
+  function update(W, sim, night, force, cam) {
     var R = W.real; if (!R) return;
     var glow = 0.3 * (1 - (night || 0));
     if (Math.abs(glow - R.orthoGlow) > 0.01) { R.orthoGlow = glow; for (var tk in R.tiles) if (R.tiles[tk].mesh) R.tiles[tk].mesh.material.emissiveIntensity = glow; }
+    if (RC.ui3d.buildings) RC.ui3d.buildings.update(R, night || 0, R.orthoGlow);
     var F = W3().frame(W.al, sim.train.x), line = R.line;
+    if (R.hd) RC.ui3d.orthohd.update(R.hd, W, cam || { x: F.x, z: F.z });
     var E = F.x + line.origin.E, N = -F.z + line.origin.N;
     var ti = Math.floor(E / TILE), tj = Math.floor(N / TILE), key = ti + '_' + tj;
     if (key === R.lastKey && !force) return;
@@ -271,12 +299,16 @@
     for (var k in want) {
       if (T && T.tiles[k] && !R.tiles[k]) R.tiles[k] = buildTerrainTile(R, k);
       var bt = R.bTiles[k];
-      if (bt && !bt.mesh && want[k] <= 3) bt.mesh = buildBuildings(R, k, bt.list);
+      if (bt && !bt.mesh && want[k] <= 3) bt.mesh = buildBuildings(R, k, bt);
     }
     for (k in R.tiles) if (!(k in want)) { disposeTile(R, R.tiles[k]); delete R.tiles[k]; }
     for (k in R.bTiles) {
       var bt2 = R.bTiles[k];
-      if (bt2.mesh && !(k in want && want[k] <= 3)) { R.group.remove(bt2.mesh); bt2.mesh.geometry.dispose(); bt2.mesh = null; }
+      if (bt2.mesh && !(k in want && want[k] <= 3)) {
+        [bt2.mesh, bt2.walls, bt2.roofs].forEach(function (m) { if (m && m.parent) { R.group.remove(m); m.geometry.dispose(); } });
+        if (bt2.roofs) bt2.roofs.material.dispose();
+        bt2.mesh = bt2.walls = bt2.roofs = null;
+      }
     }
   }
 

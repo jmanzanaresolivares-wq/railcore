@@ -1,0 +1,406 @@
+[
+{
+"id": "g_0_0",
+"parts": [
+"wall_standard_standard_01",
+"dado_standard_standard_01"
+],
+"h": 3,
+"kind": "ground"
+},
+{
+"id": "g_11_0",
+"parts": [
+"door_centered_large_01",
+"wall_door_centered_large_01",
+"dado_door_centered_large_01"
+],
+"h": 3,
+"kind": "ground"
+},
+{
+"id": "g_15_0",
+"parts": [
+"door_centered_small_01",
+"wall_door_centered_small_01",
+"dado_door_centered_small_01"
+],
+"h": 3,
+"kind": "ground"
+},
+{
+"id": "g_19_0",
+"parts": [
+"door_centered_small_02",
+"wall_door_centered_small_02",
+"dado_door_centered_small_02"
+],
+"h": 3,
+"kind": "ground"
+},
+{
+"id": "g_23_0",
+"parts": [
+"door_offset_small_01",
+"wall_door_offset_small_01",
+"dado_door_offset_small_01"
+],
+"h": 3,
+"kind": "ground"
+},
+{
+"id": "g_23_2",
+"parts": [
+"door_offset_small_02",
+"wall_door_offset_small_02",
+"dado_door_offset_small_02"
+],
+"h": 3,
+"kind": "ground"
+},
+{
+"id": "g_23_4",
+"parts": [
+"door_offset_small_03",
+"wall_door_offset_small_03",
+"dado_door_offset_small_01"
+],
+"h": 3,
+"kind": "ground"
+},
+{
+"id": "g_23_6",
+"parts": [
+"door_offset_small_04",
+"wall_door_offset_small_04",
+"dado_door_offset_small_02"
+],
+"h": 3,
+"kind": "ground"
+},
+{
+"id": "gw_11_0",
+"parts": [
+"wall_window_centered_large_02",
+"window_centered_large_02",
+"dado_standard_standard_01"
+],
+"h": 3,
+"kind": "groundwin"
+},
+{
+"id": "gw_15_0",
+"parts": [
+"wall_window_centered_small_02",
+"window_centered_small_02",
+"dado_standard_standard_01"
+],
+"h": 3,
+"kind": "groundwin"
+},
+{
+"id": "gw_19_0",
+"parts": [
+"wall_window_centered_double_02",
+"window_centered_double_02",
+"dado_standard_standard_01"
+],
+"h": 3,
+"kind": "groundwin"
+},
+{
+"id": "gw_23_0",
+"parts": [
+"wall_window_offset_small_03",
+"window_offset_small_03",
+"dado_standard_standard_01"
+],
+"h": 3,
+"kind": "groundwin"
+},
+{
+"id": "gw_23_2",
+"parts": [
+"wall_window_offset_small_04",
+"window_offset_small_04",
+"dado_standard_standard_01"
+],
+"h": 3,
+"kind": "groundwin"
+},
+{
+"id": "u4_11_0",
+"parts": [
+"wall_window_centered_large_01",
+"window_centered_large_01"
+],
+"h": 3,
+"kind": "upper4"
+},
+{
+"id": "u4_15_0",
+"parts": [
+"wall_window_centered_small_01",
+"window_centered_small_01"
+],
+"h": 3,
+"kind": "upper4"
+},
+{
+"id": "u4_19_0",
+"parts": [
+"wall_window_centered_double_01",
+"window_centered_double_01"
+],
+"h": 3,
+"kind": "upper4"
+},
+{
+"id": "u4_23_0",
+"parts": [
+"wall_window_offset_small_01",
+"window_offset_small_01"
+],
+"h": 3,
+"kind": "upper4"
+},
+{
+"id": "u4_23_2",
+"parts": [
+"wall_window_offset_small_02",
+"window_offset_small_02"
+],
+"h": 3,
+"kind": "upper4"
+},
+{
+"id": "u4_27_0",
+"parts": [
+"door_window_small_01",
+"wall_door_window_small_01"
+],
+"h": 3,
+"kind": "upper4"
+},
+{
+"id": "u4_27_2",
+"parts": [
+"door_window_small_02",
+"wall_door_window_small_02"
+],
+"h": 3,
+"kind": "upper4"
+},
+{
+"id": "u4_27_4",
+"parts": [
+"door_window_small_03",
+"wall_door_window_small_03"
+],
+"h": 3,
+"kind": "upper4"
+},
+{
+"id": "u4_27_6",
+"parts": [
+"door_window_small_04",
+"wall_door_window_small_04"
+],
+"h": 3,
+"kind": "upper4"
+},
+{
+"id": "u8_11_0",
+"parts": [
+"wall_window_centered_large_02",
+"window_centered_large_02"
+],
+"h": 3,
+"kind": "upper8"
+},
+{
+"id": "u8_15_0",
+"parts": [
+"wall_window_centered_small_02",
+"window_centered_small_02"
+],
+"h": 3,
+"kind": "upper8"
+},
+{
+"id": "u8_19_0",
+"parts": [
+"wall_window_centered_double_02",
+"window_centered_double_02"
+],
+"h": 3,
+"kind": "upper8"
+},
+{
+"id": "u8_23_0",
+"parts": [
+"wall_window_offset_small_03",
+"window_offset_small_03"
+],
+"h": 3,
+"kind": "upper8"
+},
+{
+"id": "u8_23_2",
+"parts": [
+"wall_window_offset_small_04",
+"window_offset_small_04"
+],
+"h": 3,
+"kind": "upper8"
+},
+{
+"id": "u8_27_0",
+"parts": [
+"door_window_small_05",
+"wall_door_window_small_05"
+],
+"h": 3,
+"kind": "upper8"
+},
+{
+"id": "u8_27_2",
+"parts": [
+"door_window_small_06",
+"wall_door_window_small_06"
+],
+"h": 3,
+"kind": "upper8"
+},
+{
+"id": "u8_27_4",
+"parts": [
+"door_window_small_07",
+"wall_door_window_small_07"
+],
+"h": 3,
+"kind": "upper8"
+},
+{
+"id": "u8_27_6",
+"parts": [
+"door_window_small_08",
+"wall_door_window_small_08"
+],
+"h": 3,
+"kind": "upper8"
+},
+{
+"id": "u12_11_0",
+"parts": [
+"wall_window_centered_large_03",
+"window_centered_large_03"
+],
+"h": 3,
+"kind": "upper12"
+},
+{
+"id": "u12_15_0",
+"parts": [
+"wall_window_centered_small_03",
+"window_centered_small_03"
+],
+"h": 3,
+"kind": "upper12"
+},
+{
+"id": "u12_19_0",
+"parts": [
+"wall_window_centered_double_03",
+"window_centered_double_03"
+],
+"h": 3,
+"kind": "upper12"
+},
+{
+"id": "u12_23_0",
+"parts": [
+"wall_window_offset_small_05",
+"window_offset_small_05"
+],
+"h": 3,
+"kind": "upper12"
+},
+{
+"id": "u12_23_2",
+"parts": [
+"wall_window_offset_small_06",
+"window_offset_small_06"
+],
+"h": 3,
+"kind": "upper12"
+},
+{
+"id": "u12_27_0",
+"parts": [
+"door_window_small_09",
+"wall_door_window_small_09"
+],
+"h": 3,
+"kind": "upper12"
+},
+{
+"id": "u12_27_2",
+"parts": [
+"door_window_small_010",
+"wall_door_window_small_010"
+],
+"h": 3,
+"kind": "upper12"
+},
+{
+"id": "u12_27_4",
+"parts": [
+"door_window_small_011",
+"wall_door_window_small_012"
+],
+"h": 3,
+"kind": "upper12"
+},
+{
+"id": "u12_27_6",
+"parts": [
+"door_window_small_012",
+"wall_door_window_small_013"
+],
+"h": 3,
+"kind": "upper12"
+},
+{
+"id": "wall",
+"parts": [
+"wall_standard_standard_01"
+],
+"h": 3,
+"kind": "wall"
+},
+{
+"id": "crown",
+"parts": [
+"crown_standard_standard_01"
+],
+"h": 0.75,
+"kind": "band"
+},
+{
+"id": "base",
+"parts": [
+"base_standard_01"
+],
+"h": 0.75,
+"kind": "band"
+},
+{
+"id": "cornice",
+"parts": [
+"cornice_standard_standard_01"
+],
+"h": 0.2,
+"kind": "band"
+}
+]

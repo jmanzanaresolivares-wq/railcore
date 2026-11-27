@@ -1,0 +1,63 @@
+<!doctype html><html><body style="margin:0;background:#888">
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const S = 512;
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: false });
+R.setSize(S, S); R.setPixelRatio(1);
+document.body.appendChild(R.domElement);
+const scene = new THREE.Scene();
+const g = await new GLTFLoader().loadAsync('/tools/fachadas/modelo/modular_urban_apartments_facade.gltf');
+scene.add(g.scene);
+const nodes = {}; g.scene.traverse(o => { if (o.isMesh || o.isGroup || o.isObject3D) if (o.name) nodes[o.name] = o; });
+// Media de luminancia del enlucido para normalizarlo a gris claro (se tiñe en el juego)
+const meshes = []; g.scene.traverse(o => { if (o.isMesh) meshes.push(o); });
+const orig = new Map(); meshes.forEach(o => orig.set(o, o.material));
+function kind(m) { const n = m.name; return n.endsWith('glass') ? 'glass' : n.endsWith('plaster') ? 'plaster' : n.endsWith('objects') ? 'objects' : 'trim'; }
+const cache = {};
+function matFor(pass, m) {
+  const k = pass + '|' + m.uuid; if (cache[k]) return cache[k];
+  const kd = kind(m); let r;
+  if (pass === 'albedo') {
+    if (kd === 'glass') r = new THREE.MeshBasicMaterial({ color: 0x1a2128, side: THREE.DoubleSide });
+    else {
+      r = new THREE.MeshBasicMaterial({ map: m.map, aoMap: m.metalnessMap || m.roughnessMap, aoMapIntensity: 1, side: THREE.DoubleSide });
+      // Enlucido y molduras: a gris claro (se tiñen en el juego con el color de cada edificio)
+      const N = { plaster: [0.1746, 0.80, 1.0], trim: [m.name.endsWith('trim_02') ? 0.0271 : 0.0924, 0.62, 0.65] }[kd];
+      if (N) r.customProgramCacheKey = () => 'n' + N.join(',');
+      if (N) r.onBeforeCompile = (sh) => {
+        sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>',
+          '#include <map_fragment>\n float lum = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)); diffuseColor.rgb = vec3(min(1.0, ' + N[1].toFixed(4) + ' * pow(max(lum, 1e-4) / ' + N[0].toFixed(4) + ', ' + N[2].toFixed(2) + ')));');
+      };
+    }
+  } else if (pass === 'mask') {
+    r = new THREE.MeshBasicMaterial({ color: { plaster: 0xff0000, glass: 0x00ff00, trim: 0x0000ff, objects: 0x000000 }[kd], side: THREE.DoubleSide });
+  } else if (pass === 'normal') {
+    r = new THREE.MeshNormalMaterial({ normalMap: kd === 'glass' ? null : m.normalMap, normalScale: m.normalScale || new THREE.Vector2(1, 1), side: THREE.DoubleSide });
+  }
+  return (cache[k] = r);
+}
+function setPass(pass) {
+  meshes.forEach(o => {
+    const om = orig.get(o);
+    o.material = Array.isArray(om) ? om.map(m => matFor(pass, m)) : matFor(pass, om);
+  });
+  R.outputColorSpace = pass === 'albedo' ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
+  scene.background = new THREE.Color(pass === 'normal' ? 0x8080ff : 0x000000);
+  if (pass === 'normal') scene.background.setRGB(0.5, 0.5, 1.0, THREE.LinearSRGBColorSpace);
+}
+const saved = {}; Object.values(nodes).forEach(o => saved[o.uuid] = o.position.clone());
+// tile = { parts: [nombre, ...], h: alto del marco en m }
+window.render = (parts, h, pass) => {
+  setPass(pass);
+  g.scene.traverse(o => { if (o.isMesh) o.visible = false; });
+  Object.values(nodes).forEach(o => o.position.copy(saved[o.uuid]));
+  parts.forEach(n => { const o = nodes[n]; if (!o) throw new Error('falta ' + n); o.position.set(0, 0, 0); o.traverse(c => { if (c.isMesh) c.visible = true; }); });
+  const cam = new THREE.OrthographicCamera(-1.5, 1.5, h / 2, -h / 2, 0.1, 50);
+  cam.position.set(-1.5, h / 2, 10); cam.lookAt(-1.5, h / 2, 0); cam.updateMatrixWorld();
+  R.render(scene, cam); return R.domElement.toDataURL('image/png');
+};
+window.names = Object.keys(nodes);
+window.ready = true;
+</script></body></html>

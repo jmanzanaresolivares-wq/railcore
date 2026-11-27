@@ -417,7 +417,7 @@
     });
     // Estaciones (viajeros, luces, relojes y pantallas)
     if (RC.ui3d.stations) RC.ui3d.stations.update(W, sim, night, cam);
-    if (W.real) RC.ui3d.realworld.update(W, sim, night);
+    if (W.real) RC.ui3d.realworld.update(W, sim, night, false, cam);
     else W.buildingMat.emissiveIntensity = night * 1.2;
   }
 

@@ -1,6 +1,6 @@
 # RAILCORE
 
-Simulador ferroviario de conducción realista. Este es el **prototipo 0.5**: una Renfe Civia en
+Simulador ferroviario de conducción realista. Este es el **prototipo 0.6**: una Renfe Civia en
 Cercanías Sevilla C-1, de **Sevilla-Santa Justa a Utrera**, con arranque en frío, cabina
 funcional, física del tren, señales y ASFA.
 
@@ -23,8 +23,8 @@ Ver `assets/brand/README.md` (incluye cómo cambiar de paquete de marca).
 ## Cómo jugar en Windows (.exe)
 
 1. Entra en la pestaña **Releases** del repositorio (columna derecha de la página principal en GitHub).
-2. Descarga **`RAILCORE-0.5.0-portable.exe`** (no necesita instalación) o
-   **`RAILCORE-0.5.0-instalador.exe`** (crea un acceso directo).
+2. Descarga **`RAILCORE-0.6.0-portable.exe`** (no necesita instalación) o
+   **`RAILCORE-0.6.0-instalador.exe`** (crea un acceso directo).
 3. Ábrelo con doble clic. Como el programa no está firmado, Windows puede mostrar
    «Windows protegió su PC»: pulsa **Más información → Ejecutar de todas formas**.
 
@@ -41,11 +41,21 @@ También se puede jugar sin instalar nada abriendo `index.html` en Chrome o Edge
   Cada mando es un objeto 3D: el manipulador se arrastra, el inversor gira, los interruptores
   basculan, los pulsadores se hunden y se iluminan. Botón derecho del ratón para mirar
   alrededor; teclas 1-4 para mirar al frente, al armario, al pupitre o a la ventanilla.
-- **Mundo 3D** con curvas y rampas, balasto, traviesas, carriles, catenaria, señales que cambian
-  de aspecto, balizas, edificios, olivares, cielo físico según la hora, amanecer, faros y
-  limpiaparabrisas. Texturas reales CC0 de Poly Haven.
+- **Mundo 3D fotográfico** con curvas y rampas, balasto, traviesas, carriles, señales que cambian
+  de aspecto, balizas, cielo físico según la hora, amanecer, faros y limpiaparabrisas. Texturas
+  reales CC0 de Poly Haven.
+- **Luz real de Sevilla**: el sol sale y se pone a la hora y en la dirección de verdad para la
+  fecha del juego, y proyecta **sombras** de edificios, postes, andenes y del propio tren. Las
+  **nubes** derivan con el viento y, cuando tapan el sol, la luz baja como en un día real.
+- **Fachadas fotográficas** en todos los edificios del Catastro: paredes encaladas con zócalo y
+  recercado en albero o almagra, balcones, rejas, persianas, ladrillo visto y naves industriales,
+  con ventanas que se encienden de noche. Los tejados toman su color de la foto aérea real.
+- **Suelo con foto aérea de 0,3 m por píxel** en una franja de 70 m a cada lado de la vía (se ven
+  coches, árboles y marcas viales), y grano fino de tierra y grava cuando se mira de cerca.
+- **Catenaria como la real**: postes en H con macizo de hormigón, ménsulas con aisladores de
+  porcelana, hilo de contacto en zigzag, sustentador con su flecha y péndolas.
 - **El tren visto desde fuera** (tecla **V**): unidad de 5 coches con los colores de Ferronda,
-  morro redondeado, puertas que se abren de verdad, pantógrafo que sube y baja, ruedas que giran,
+  pintura barnizada que refleja el cielo, suciedad de servicio en bajos y techo, morro redondeado, puertas que se abren de verdad, pantógrafo que sube y baja, ruedas que giran,
   faros, pilotos rojos, rótulo de destino y luz interior de noche. Vista «exterior» (arrastre
   para girar alrededor, rueda para acercar) y vista «junto a la vía» (la cámara ve pasar el tren).
 - **Estaciones de la C-1** construidas con los datos de la ruta: andenes laterales o centrales
@@ -109,7 +119,11 @@ Todos los mandos del pupitre también se pueden pulsar con el ratón.
 - `src/ui/` — cabina, vista frontal, esquema de línea, sonido sintetizado e instructor.
 - `src/ui3d/` — cabina y mundo 3D (Three.js r158, incluido en `vendor/`, MIT): tren por fuera
   (`emu3d.js`), estaciones (`stations3d.js`), trenes en la vía (`traffic3d.js`), terreno y
-  edificios reales (`realworld3d.js`).
+  edificios reales (`realworld3d.js`), fachadas y tejados (`buildings3d.js`), ortofoto de 0,3 m
+  junto a la vía (`orthohd3d.js`), nubes (`clouds3d.js`) y vía y catenaria (`world3d.js`).
+- `tools/fachadas/` — cómo se hornea el atlas de fachadas a partir del kit CC0 de Poly Haven
+  (`assets/fachadas/`, ver su `CREDITS.md`); `tools/embed-fachadas.js` lo incrusta en
+  `src/data/facades-data.js`.
 - `tools/captura/` — capturas automáticas del juego y banco de pruebas del tren, para revisar
   cambios visuales sin abrir el juego.
 - `assets/textures/` — texturas CC0 de Poly Haven (ver `CREDITS.md`); `tools/embed-textures.js` las incrusta en `src/data/textures-data.js`.

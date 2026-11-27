@@ -1,6 +1,6 @@
 # RAILCORE
 
-Simulador ferroviario de conducción realista. Este es el **prototipo 0.1**: una Renfe Civia en
+Simulador ferroviario de conducción realista. Este es el **prototipo 0.6**: una Renfe Civia en
 Cercanías Sevilla C-1, de **Sevilla-Santa Justa a Utrera**, con arranque en frío, cabina
 funcional, física del tren, señales y ASFA.
 
@@ -23,8 +23,8 @@ Ver `assets/brand/README.md` (incluye cómo cambiar de paquete de marca).
 ## Cómo jugar en Windows (.exe)
 
 1. Entra en la pestaña **Releases** del repositorio (columna derecha de la página principal en GitHub).
-2. Descarga **`RAILCORE-0.1.0-portable.exe`** (no necesita instalación) o
-   **`RAILCORE-0.1.0-instalador.exe`** (crea un acceso directo).
+2. Descarga **`RAILCORE-0.6.0-portable.exe`** (no necesita instalación) o
+   **`RAILCORE-0.6.0-instalador.exe`** (crea un acceso directo).
 3. Ábrelo con doble clic. Como el programa no está firmado, Windows puede mostrar
    «Windows protegió su PC»: pulsa **Más información → Ejecutar de todas formas**.
 
@@ -41,10 +41,62 @@ También se puede jugar sin instalar nada abriendo `index.html` en Chrome o Edge
   Cada mando es un objeto 3D: el manipulador se arrastra, el inversor gira, los interruptores
   basculan, los pulsadores se hunden y se iluminan. Botón derecho del ratón para mirar
   alrededor; teclas 1-4 para mirar al frente, al armario, al pupitre o a la ventanilla.
-- **Mundo 3D** con curvas y rampas, balasto, traviesas, carriles, catenaria, señales que cambian
-  de aspecto, balizas, andenes con viajeros, edificios, olivares, cielo físico según la hora,
-  amanecer, faros y limpiaparabrisas. Texturas reales CC0 de Poly Haven.
-- **Hora de salida a elegir**: amanecer, mediodía, atardecer o noche.
+- **Mundo 3D fotográfico** con curvas y rampas, balasto, traviesas, carriles, señales que cambian
+  de aspecto, balizas, cielo físico según la hora, amanecer, faros y limpiaparabrisas. Texturas
+  reales CC0 de Poly Haven.
+- **Luz real de Sevilla**: el sol sale y se pone a la hora y en la dirección de verdad para la
+  fecha del juego, y proyecta **sombras** de edificios, postes, andenes y del propio tren. Las
+  **nubes** derivan con el viento y, cuando tapan el sol, la luz baja como en un día real.
+- **Fachadas fotográficas** en todos los edificios del Catastro: paredes encaladas con zócalo y
+  recercado en albero o almagra, balcones, rejas, persianas, ladrillo visto y naves industriales,
+  con ventanas que se encienden de noche. Los tejados toman su color de la foto aérea real.
+- **Suelo con foto aérea de 0,3 m por píxel** en una franja de 70 m a cada lado de la vía (se ven
+  coches, árboles y marcas viales), y grano fino de tierra y grava cuando se mira de cerca.
+- **Catenaria como la real**: postes en H con macizo de hormigón, ménsulas con aisladores de
+  porcelana, hilo de contacto en zigzag, sustentador con su flecha y péndolas.
+- **Árboles, matas y hierba reales** (modelos CC0 de Poly Haven): se plantan donde la foto aérea
+  muestra copas y prados, con la especie según el entorno (jacarandas y árboles de calle en la
+  ciudad, olivos en los olivares, lentiscos y acebuches en el monte); se mecen con el viento y
+  proyectan la sombra de sus hojas. Hierba y matas en las cunetas cerca del tren.
+- **El tren visto desde fuera** (tecla **V**): unidad de 5 coches con los colores de Ferronda,
+  pintura barnizada que refleja el cielo, suciedad de servicio en bajos y techo, morro redondeado, puertas que se abren de verdad, pantógrafo que sube y baja, ruedas que giran,
+  faros, pilotos rojos, rótulo de destino y luz interior de noche. Vista «exterior» (arrastre
+  para girar alrededor, rueda para acercar) y vista «junto a la vía» (la cámara ve pasar el tren).
+- **Estaciones de la C-1** construidas con los datos de la ruta: andenes laterales o centrales
+  con borde de seguridad y banda táctil, marquesinas con luz, bancos, papeleras, farolas,
+  carteles con la marca Trazia, pantallas de próximos trenes y relojes con la hora del juego,
+  cartelón de parada y viajeros. San Bernardo es subterránea (paredes de azulejo) y Santa Justa
+  tiene una gran nave abovedada.
+- **Tráfico**: el tren precedente es una unidad completa que abre puertas en las estaciones, y
+  por la vía 2 vienen trenes hacia Santa Justa cada 20 minutos (sólo ambiente, no afectan a las
+  señales).
+- **Hora de salida a elegir**: amanecer, mediodía, atardecer o noche. **Meteorología**:
+  despejado, carril húmedo o lluvia (menos adherencia, gotas en el parabrisas).
+- **Cabina completa** (modelo original inspirado en la disposición de un puesto de Cercanías
+  moderno): pupitre envolvente con biselados, frente de instrumentos, consolas laterales de
+  megafonía y radio, panel de techo, armario de servicios, cortinilla parasol, asiento, pedal de
+  hombre muerto, ventanillas, puerta al salón y limpiaparabrisas por fuera. Texturas CC0 de Poly
+  Haven (`assets/textures-cabina/CREDITS.md`), rótulos en español en todos los mandos y
+  retroiluminación nocturna de rótulos, esferas y pantallas (con atenuador).
+- **Sistemas de la cabina**, todos en el núcleo determinista y visibles en las pantallas:
+  - **Adherencia y arenado**: la adherencia depende de la velocidad y del carril (seco, húmedo,
+    mojado); el antipatinaje recorta la tracción y el antideslizamiento el freno; los areneros
+    (neumáticos, con depósito que se gasta) actúan solos al patinar o deslizar o con el pulsador.
+  - **Freno eléctrico de recuperación** mezclado con el neumático (se desvanece por debajo de
+    9 km/h; la energía devuelta se contabiliza).
+  - **Regulador de velocidad** con consigna de 5 en 5 km/h: el manipulador en tracción limita el
+    esfuerzo; freno o neutro lo anulan (el maquinista siempre manda).
+  - **Bocina de dos tonos** (alto y bajo), **alumbrado** (faros de cruce y largo alcance, luces
+    de posición, pilotos de cola, luz de cabina y de pupitre, atenuador).
+  - **Parabrisas**: limpiaparabrisas con intermitente y dos velocidades (las escobillas barren
+    de verdad las gotas), lavaparabrisas con depósito, luneta térmica contra el vaho.
+  - **Climatización** de cabina (consigna) y del salón, con modelo térmico y temperatura exterior.
+  - **Baterías** con estado de carga y convertidor estático que las recarga.
+  - **Megafonía** con gong, voz y texto en pantalla; **radio tren-tierra** con canales por zona,
+    llamada al Puesto de Mando (respuestas según la situación) y llamada de emergencia.
+  - **Indicador de destino y número de tren** (los datos quedan listos para el rótulo exterior).
+  - **TCMS** (pantalla de estado) con páginas de tracción, freno, puertas, alta tensión,
+    climatización y averías/eventos, alarmas por gravedad y reconocimiento.
 
 - **Tres escenarios**: arranque en frío en Santa Justa, tren preparado en Santa Justa y
   servicio corto Dos Hermanas → Utrera.
@@ -77,13 +129,24 @@ También se puede jugar sin instalar nada abriendo `index.html` en Chrome o Edge
 | Q · E | ASFA: reconocer baliza · rearme de freno |
 | Espacio | Vigilancia (hombre muerto) |
 | Z / X · C | Abrir puertas izquierda / derecha · cerrar |
-| H · L · B | Bocina · faros · freno de estacionamiento |
+| H · J (mantener) | Bocina tono alto · tono bajo |
+| L · Mayús + L · B | Faros · luz de cabina · freno de estacionamiento |
+| A (mantener) | Arenado |
+| G · + / − (Re Pág / Av Pág) | Regulador de velocidad: conectar/desconectar · consigna ±5 km/h |
+| K · Mayús + K · D | Limpiaparabrisas (0/INT/1/2) · lavaparabrisas · luneta térmica |
+| , / . | Intensidad de pantallas y rótulos |
+| 5 6 7 8 9 0 | TCMS: tracción · freno · puertas · alta tensión · climatización · averías (0 otra vez: reconocer) |
+| F2 · F3 | Megafonía: próxima estación · cierre de puertas |
+| F4 · F8 · F9 | Radio: llamar al Puesto de Mando · canal siguiente · emergencia |
 | T · P · F1 | Acelerar tiempo · pausa · ayuda |
 | F11 | Pantalla completa (en el .exe) |
+| V | Cambiar de vista: cabina / exterior / junto a la vía |
 | 1 / 2 / 3 / 4 | Cabina 3D: frente / armario de servicios / pupitre / ventanilla |
 | Botón derecho + arrastrar | Mirar alrededor en la cabina 3D |
 
-Todos los mandos del pupitre también se pueden pulsar con el ratón.
+Todos los mandos de la cabina también se pueden pulsar con el ratón (la rueda gira los selectores y
+mueve el manipulador; Mayús + clic gira un selector hacia atrás). Destino, número de tren, los demás
+avisos de megafonía, la climatización y los mandos del armario de servicios están en sus paneles.
 
 ## Cómo está hecho
 
@@ -94,8 +157,22 @@ Todos los mandos del pupitre también se pueden pulsar con el ratón.
   muerto, enclavamientos) es determinista y está separada de la presentación y de la radio.
 - `src/data/` — datos del tren, de la línea y del ASFA, con las cifras pendientes de verificar.
 - `src/ui/` — cabina, vista frontal, esquema de línea, sonido sintetizado e instructor.
-- `src/ui3d/` — cabina y mundo 3D (Three.js r158, incluido en `vendor/`, MIT).
+- `src/ui3d/` — cabina y mundo 3D (Three.js r158, incluido en `vendor/`, MIT): tren por fuera
+  (`emu3d.js`), estaciones (`stations3d.js`), trenes en la vía (`traffic3d.js`), terreno y
+  edificios reales (`realworld3d.js`), fachadas y tejados (`buildings3d.js`), ortofoto de 0,3 m
+  junto a la vía (`orthohd3d.js`), nubes (`clouds3d.js`) y vía y catenaria (`world3d.js`).
+- `tools/fachadas/` — cómo se hornea el atlas de fachadas a partir del kit CC0 de Poly Haven
+  (`assets/fachadas/`, ver su `CREDITS.md`); `tools/embed-fachadas.js` lo incrusta en
+  `src/data/facades-data.js`.
+- `tools/captura/` — capturas automáticas del juego y banco de pruebas del tren, para revisar
+  cambios visuales sin abrir el juego.
 - `assets/textures/` — texturas CC0 de Poly Haven (ver `CREDITS.md`); `tools/embed-textures.js` las incrusta en `src/data/textures-data.js`.
+- `assets/vegetacion/` — árboles, matas y hierba: modelos CC0 de Poly Haven horneados en impostores de 8 vistas con `tools/vegetacion/` (ver `CREDITS.md`); `src/ui3d/vegetation3d.js` los planta donde la ortofoto muestra copas y prados.
+- `assets/textures-cabina/` — texturas CC0 de Poly Haven de la cabina (ver `CREDITS.md`);
+  `tools/embed-cab-textures.js` las incrusta en `src/data/cab-textures-data.js`. La cabina se
+  construye en `src/ui3d/cab3d.js` con las utilidades de `src/ui3d/cabkit3d.js` y sus pantallas
+  se dibujan en `src/ui3d/displays3d.js`. Megafonía, radio y servicio: `src/core/comms.js`;
+  TCMS: `src/core/tcms.js`.
 - `electron/` — envoltorio de escritorio para generar el `.exe`.
 - `tests/` — pruebas: física, enclavamientos, ASFA, señales, determinismo y tres servicios
   completos conducidos por el maquinista automático sin ninguna falta.
@@ -109,6 +186,6 @@ Ver [`docs/DATOS-A-VERIFICAR.md`](docs/DATOS-A-VERIFICAR.md).
 
 ## Modelos y marcas reales
 
-La cabina 3D es un modelo original inspirado en la disposición de un puesto de conducción de
-Cercanías; no reproduce planos del fabricante. Los modelos exactos de la Civia (CAD de CAF/Alstom),
+La cabina 3D y el tren visto desde fuera son modelos originales inspirados en un tren de
+Cercanías moderno; no reproducen planos del fabricante ni ninguna librea real. Los modelos exactos de la Civia (CAD de CAF/Alstom),
 sus texturas oficiales y los logotipos de Renfe y Adif necesitarían licencia de sus propietarios.

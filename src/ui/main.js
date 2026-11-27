@@ -44,17 +44,31 @@
     ['Espacio', 'Vigilancia (hombre muerto)'],
     ['Z / X', 'Abrir puertas izquierda / derecha'],
     ['C', 'Cerrar puertas'],
-    ['H (mantener)', 'Bocina'],
+    ['H / J (mantener)', 'Bocina: tono alto / tono bajo'],
+    ['A (mantener)', 'Arenado (el automático actúa solo al patinar o deslizar)'],
+    ['G', 'Regulador de velocidad: conectar / desconectar (actúa con el manipulador en tracción; freno o neutro lo anulan)'],
+    ['+ / − (o Re Pág / Av Pág)', 'Regulador: subir / bajar la consigna 5 km/h'],
     ['L', 'Faros (apagados / cruce / largo)'],
+    ['Mayús + L', 'Luz de cabina'],
+    [', / .', 'Intensidad de pantallas y rótulos: menos / más'],
+    ['K', 'Limpiaparabrisas: siguiente velocidad (0 / INT / 1 / 2)'],
+    ['Mayús + K', 'Lavaparabrisas'],
+    ['D', 'Luneta térmica (desempañador)'],
+    ['5 6 7 8 9 0', 'Pantalla TCMS: tracción / freno / puertas / alta tensión / climatización / averías (0 otra vez: reconocer alarmas)'],
+    ['F2 / F3', 'Megafonía: próxima estación / cierre de puertas'],
+    ['F4', 'Radio: llamar al Puesto de Mando'],
+    ['F8', 'Radio: canal siguiente'],
+    ['F9', 'Radio: llamada de emergencia'],
     ['B', 'Freno de estacionamiento (aplicar / aflojar)'],
     ['T', 'Acelerar el tiempo (×1, ×2, ×4)'],
     ['P / Esc', 'Pausa'],
     ['M', 'Silenciar sonido'],
     ['I', 'Mostrar / ocultar instructor'],
     ['F1', 'Esta ayuda'],
+    ['V', 'Cambiar de vista: cabina / exterior (arrastre para girar, rueda para acercar) / junto a la vía'],
     ['1 / 2 / 3 / 4', 'Cabina 3D: mirar al frente / armario de servicios (izquierda) / pupitre / ventanilla'],
     ['Botón derecho (arrastrar)', 'Cabina 3D: mirar alrededor. Rueda: zoom (o mover el mando bajo el ratón)'],
-    ['Ratón', 'Todos los mandos del pupitre se pueden pulsar. La rueda sobre el manipulador lo mueve.']
+    ['Ratón', 'Todos los mandos de la cabina se pueden pulsar (pupitre, consolas laterales, panel de techo, armario de servicios y pedal). La rueda sobre un selector o el manipulador lo mueve; Mayús + clic gira un selector hacia atrás.']
   ];
   $('helpContent').innerHTML = '<div class="keys">' + KEYS.map(function (k) { return '<div><kbd>' + k[0] + '</kbd></div><div>' + k[1] + '</div>'; }).join('') + '</div>' +
     '<p class="note">Consejo: en el escenario de arranque en frío, el panel «Instructor» de la derecha te guía paso a paso.</p>';
@@ -86,7 +100,7 @@
     RC.ui.audio.init(audio);
     audio.enabled = state.opts.sound; audio.voice = state.opts.voice && state.opts.sound;
     if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
-    state.sim = S.create(state.scenario, { departure: $('optHour').value });
+    state.sim = S.create(state.scenario, { departure: $('optHour').value, weather: $('optWeather').value });
     document.body.classList.toggle('mode3d', state.opts.cab3d);
     if (state.opts.cab3d) {
       try {
@@ -119,16 +133,23 @@
 
   /* ---------- Teclado ---------- */
   var down = {};
+  var FKEYS = ['F2', 'F3', 'F4', 'F8', 'F9'];
+  var TCMS_KEYS = { '5': 'traccion', '6': 'freno', '7': 'puertas', '8': 'at', '9': 'clima', '0': 'averias' };
   window.addEventListener('keydown', function (e) {
     if (e.key === 'F1') { e.preventDefault(); state.paused = true; showDialog('helpDialog'); return; }
     if (!state.sim) return;
+    if (FKEYS.indexOf(e.key) >= 0) e.preventDefault();   // que el navegador no use estas teclas (buscar, etc.)
     var k = e.key.toLowerCase();
-    if (e.repeat && k !== 'w' && k !== 's' && k !== 'arrowup' && k !== 'arrowdown') return;
+    if (e.repeat && k !== 'w' && k !== 's' && k !== 'arrowup' && k !== 'arrowdown') { if (k === 'a' || k === 'h' || k === 'j') e.preventDefault(); return; }
     if (k === 'p' || k === 'escape') { togglePause(); return; }
     if (k === 'm') { audio.enabled = !audio.enabled; toast(audio.enabled ? 'Sonido activado' : 'Sonido silenciado', 'info'); return; }
     if (k === 'i') { state.opts.instructor = !state.opts.instructor; $('instructorCard').style.display = state.opts.instructor ? '' : 'none'; return; }
     if (k === 't') { cycleSpeed(); return; }
-    if (state.scene3d && state.opts.cab3d && ['1', '2', '3', '4'].indexOf(k) >= 0) { state.scene3d.setView(+k - 1); return; }
+    if (state.scene3d && state.opts.cab3d && ['1', '2', '3', '4'].indexOf(k) >= 0) {
+      if (state.scene3d.ext.mode) state.scene3d.setExterior(0);
+      state.scene3d.setView(+k - 1); return;
+    }
+    if (k === 'v' && state.scene3d && state.opts.cab3d) { toast('Vista: ' + state.scene3d.cycleView(), 'info'); return; }
     var t = state.sim.train;
     var map = {
       'w': { type: 'leverStep', delta: 1 }, 'arrowup': { type: 'leverStep', delta: 1 },
@@ -139,14 +160,39 @@
       'q': { type: 'asfa:recAnPar' }, 'e': { type: 'asfa:rearme' }, ' ': { type: 'vigil' },
       'z': { type: 'doors', side: 'left', action: 'open' }, 'x': { type: 'doors', side: 'right', action: 'open' },
       'c': { type: 'doors', action: 'close' },
-      'l': { type: 'headlights', mode: (t.controls.headlights + 1) % 3 },
-      'b': { type: 'parking', apply: !t.air.parking }
+      'l': e.shiftKey ? { type: 'cabLight', on: !t.controls.cabLight } : { type: 'headlights', mode: (t.controls.headlights + 1) % 3 },
+      'b': { type: 'parking', apply: !t.air.parking },
+      'g': { type: 'regulator', on: !t.reg.on },
+      '+': { type: 'regulatorSet', delta: 1 }, '=': { type: 'regulatorSet', delta: 1 }, 'pageup': { type: 'regulatorSet', delta: 1 },
+      '-': { type: 'regulatorSet', delta: -1 }, 'pagedown': { type: 'regulatorSet', delta: -1 },
+      ',': { type: 'dimmer', delta: -0.1 }, '.': { type: 'dimmer', delta: 0.1 },
+      'k': e.shiftKey ? { type: 'washer' } : { type: 'wipers', mode: (t.controls.wipers + 1) % 4 },
+      'd': { type: 'demister', on: !t.controls.demister },
+      'f2': { type: 'pa', msg: 'next' }, 'f3': { type: 'pa', msg: 'doors' },
+      'f4': { type: 'radio:call' }, 'f8': { type: 'radio:channel', delta: 1 }, 'f9': { type: 'radio:emergency' }
     };
+    if (TCMS_KEYS[k]) {
+      var pg = TCMS_KEYS[k];
+      send(pg === 'averias' && state.sim.tcms.page === 'averias' ? { type: 'tcms', ack: true } : { type: 'tcms', page: pg });
+      e.preventDefault(); return;
+    }
     if (k === 'h') { if (!down.h) send({ type: 'horn', on: true }); down.h = true; e.preventDefault(); return; }
+    if (k === 'j') { if (!down.j) send({ type: 'horn', on: true, tone: 'baja' }); down.j = true; e.preventDefault(); return; }
+    if (k === 'a') { if (!down.a) send({ type: 'sand', on: true }); down.a = true; e.preventDefault(); return; }
     if (map[k]) { e.preventDefault(); send(map[k]); }
   });
   window.addEventListener('keyup', function (e) {
-    if (e.key.toLowerCase() === 'h') { down.h = false; send({ type: 'horn', on: false }); }
+    var k = e.key.toLowerCase();
+    if (k === 'h') { down.h = false; send({ type: 'horn', on: false }); }
+    if (k === 'j') { down.j = false; send({ type: 'horn', on: false, tone: 'baja' }); }
+    if (k === 'a') { down.a = false; send({ type: 'sand', on: false }); }
+  });
+  // Si la ventana pierde el foco con una tecla mantenida, se suelta (bocina y arenado)
+  window.addEventListener('blur', function () {
+    if (down.h) send({ type: 'horn', on: false });
+    if (down.j) send({ type: 'horn', on: false, tone: 'baja' });
+    if (down.a) send({ type: 'sand', on: false });
+    down = {};
   });
 
   /* ---------- Interfaz lateral ---------- */
@@ -224,6 +270,8 @@
       var sig = sim.signals.filter(function (s) { return s.x > t.x; })[0];
       if (sig && sig.x - t.x < 1500) parts.push('<div class="hudbox"><span class="lbl">Señal ' + sig.name + '</span>' + sig.aspect.toUpperCase() + ' · ' + Math.round(sig.x - t.x) + ' m</div>');
     }
+    if (t.reg.on) parts.push('<div class="hudbox"><span class="lbl">Regulador</span>' + t.reg.set_kmh + ' km/h' + (t.reg.active ? ' · activo' : '') + '</div>');
+    if (sim.weather && sim.weather.id !== 'seco') parts.push('<div class="hudbox"><span class="lbl">Meteo</span>' + (sim.weather.rain > 0 ? 'Lluvia' : 'Carril húmedo') + '</div>');
     if (state.paused) parts.push('<div class="hudbox" style="color:#f2a93b">PAUSA</div>');
     if (state.timeScale > 1) parts.push('<div class="hudbox">Tiempo ×' + state.timeScale + '</div>');
     if (state.ap) parts.push('<div class="hudbox" style="color:#5aa9ff">DEMOSTRACIÓN</div>');

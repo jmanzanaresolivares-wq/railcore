@@ -43,13 +43,34 @@
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   };
-  /* Elevación aproximada del sol en Sevilla a finales de noviembre (grados). [aprox.] */
-  U.sunElevation = function (clock) {
-    var rise = U.parseClock('08:07:00'), set = U.parseClock('18:02:00'), maxEl = 33;
-    clock = ((clock % 86400) + 86400) % 86400;
-    if (clock < rise) return Math.max(-18, -(rise - clock) / 3600 * 11);
-    if (clock > set) return Math.max(-18, -(clock - set) / 3600 * 11);
-    return maxEl * Math.sin(Math.PI * (clock - rise) / (set - rise));
+  /* Posición del sol en Sevilla (37,39° N; 5,98° O) con la hora oficial peninsular, para un día
+   * del año (por defecto el 331, finales de noviembre). Fórmulas de la NOAA simplificadas.
+   * Devuelve elevación y acimut en grados (acimut desde el norte, en sentido horario). */
+  U.sun = function (clock, doy) {
+    var D = Math.PI / 180, lat = 37.39 * D, lon = -5.98;
+    doy = doy || 331;
+    var tz = (doy > 87 && doy < 301) ? 2 : 1;                 // horario de verano aproximado
+    var t = ((clock % 86400) + 86400) % 86400 / 60;           // minutos del día (hora local)
+    var g = 2 * Math.PI / 365 * (doy - 1 + (t / 60 - tz - 12) / 24);
+    var eqt = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+    var decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+    var ha = ((t + eqt + 4 * lon - 60 * tz) / 4 - 180) * D;
+    var cz = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(ha);
+    var el = 90 - Math.acos(Math.max(-1, Math.min(1, cz))) / D;
+    var az = (180 + Math.atan2(Math.sin(ha), Math.cos(ha) * Math.sin(lat) - Math.tan(decl) * Math.cos(lat)) / D) % 360;
+    if (el > -1) el += 0.57 * Math.exp(-Math.max(0, el) / 2.5);   // refracción cerca del horizonte (aprox.)
+    return { el: el, az: az };
+  };
+  U.sunElevation = function (clock) { return U.sun(clock).el; };
+  U.sunAzimuth = function (clock) { return U.sun(clock).az; };
+  /* Temperatura exterior aproximada en Sevilla a finales de noviembre (°C). [aprox.]
+   * Mínima ~8 °C hacia las 07:45 y máxima ~19 °C hacia las 15:00. */
+  U.outsideTemp = function (clock) {
+    var tMin = U.parseClock('07:45:00'), tMax = U.parseClock('15:00:00'), lo = 8, hi = 19;
+    var c = ((clock % 86400) + 86400) % 86400, f;
+    if (c >= tMin && c <= tMax) f = (c - tMin) / (tMax - tMin);                   // subiendo
+    else f = 1 - ((c - tMax + 86400) % 86400) / (86400 - (tMax - tMin));          // bajando
+    return lo + (hi - lo) * (0.5 - 0.5 * Math.cos(Math.PI * f));
   };
   RC.core.util = U;
 })(globalThis.RC);

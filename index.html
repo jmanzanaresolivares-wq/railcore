@@ -59,6 +59,8 @@
       <label><input type="checkbox" id="optCab3d" checked> <b>Cabina 3D</b> (recomendado; desmárcalo si tu ordenador va lento)</label>
       <label>Hora de salida de Santa Justa:
         <select id="optHour"><option value="07:30:00">07:30 · amanecer</option><option value="13:30:00">13:30 · mediodía</option><option value="17:30:00">17:30 · atardecer</option><option value="21:00:00">21:00 · noche</option></select></label>
+      <label>Meteorología:
+        <select id="optWeather"><option value="seco">Despejado · carril seco</option><option value="humedo">Carril húmedo (rocío)</option><option value="lluvia">Lluvia · carril mojado</option></select></label>
       <label><input type="checkbox" id="optInstructor" checked> Instructor (modo aprendizaje)</label>
       <label><input type="checkbox" id="optAids" checked> Ayudas en pantalla (velocidad máxima de la vía)</label>
       <label><input type="checkbox" id="optSound" checked> Sonido</label>
@@ -66,7 +68,7 @@
       <label><input type="checkbox" id="optAuto"> Modo demostración (conduce el maquinista automático)</label>
     </div>
     <button id="btnStart" class="primary">Empezar la jornada</button>
-    <p class="note">Los datos de la línea, del tren y del ASFA son aproximados y están marcados como «Verificar» en el código. Ferronda y Trazia son marcas ficticias. La ruta se ha construido con datos abiertos (OpenStreetMap, IGN, Catastro, GTFS); créditos en CREDITOS-DATOS.md.</p>
+    <p class="note">Los datos de la línea, del tren y del ASFA son aproximados y están marcados como «Verificar» en el código. Ferronda y Trazia son marcas ficticias. La ruta se ha construido con datos abiertos: © colaboradores de OpenStreetMap (ODbL); relieve y ortofoto PNOA cedidos por © Instituto Geográfico Nacional (CC BY 4.0); edificios de la Dirección General del Catastro; horarios del GTFS de Cercanías. Texturas, fachadas, árboles y cabina con recursos CC0 de Poly Haven. Créditos completos en CREDITOS-DATOS.md.</p>
   </div>
   <div class="dialog hidden" id="helpDialog">
     <h2>Mandos y teclas</h2>
@@ -91,6 +93,8 @@
 <script src="src/data/c1/line-c1-real.js"></script>
 <script src="src/core/train.js"></script>
 <script src="src/core/asfa.js"></script>
+<script src="src/core/comms.js"></script>
+<script src="src/core/tcms.js"></script>
 <script src="src/core/timetable.js"></script>
 <script src="src/core/signalling.js"></script>
 <script src="src/core/sim.js"></script>
@@ -99,17 +103,29 @@
 <script src="vendor/three.min.js"></script>
 <script src="vendor/three-sky.js"></script>
 <script src="src/data/textures-data.js"></script>
+<script src="src/data/facades-data.js"></script>
+<script src="src/data/cab-textures-data.js"></script>
 <script src="src/ui/audio.js"></script>
 <script src="src/ui/view.js"></script>
 <script src="src/ui/map.js"></script>
 <script src="src/ui/cab.js"></script>
 <script src="src/ui/instructor.js"></script>
+<script src="src/data/vegetation-data.js"></script>
 <script src="src/data/c1/terrain-c1.js"></script>
 <script src="src/data/c1/buildings-c1.js"></script>
+<script src="src/data/c1/ortohd-indice.js"></script>
 <script src="src/ui3d/world3d.js"></script>
 <script src="src/ui3d/realworld3d.js"></script>
+<script src="src/ui3d/buildings3d.js"></script>
+<script src="src/ui3d/orthohd3d.js"></script>
+<script src="src/ui3d/stations3d.js"></script>
+<script src="src/ui3d/vegetation3d.js"></script>
+<script src="src/ui3d/emu3d.js"></script>
+<script src="src/ui3d/traffic3d.js"></script>
 <script src="src/ui3d/displays3d.js"></script>
+<script src="src/ui3d/cabkit3d.js"></script>
 <script src="src/ui3d/cab3d.js"></script>
+<script src="src/ui3d/clouds3d.js"></script>
 <script src="src/ui3d/scene3d.js"></script>
 <script src="src/ui/main.js"></script>
 </body>

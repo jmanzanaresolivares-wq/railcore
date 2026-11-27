@@ -1,7 +1,7 @@
 {
   "name": "railcore",
   "productName": "RAILCORE",
-  "version": "0.1.0",
+  "version": "0.6.0",
   "description": "RAILCORE — simulador ferroviario. Prototipo: Renfe Civia en Cercanías Sevilla C-1 (Santa Justa – Utrera).",
   "main": "electron/main.js",
   "author": "RAILCORE",
@@ -9,7 +9,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node --test tests/core.test.js",
+    "test": "node --test tests/core.test.js tests/sistemas.test.js",
     "dist:win": "electron-builder --win portable nsis --x64 --publish never",
     "dist:win-zip": "electron-builder --win zip --x64 --publish never"
   },
@@ -26,6 +26,7 @@
     "files": [
       "index.html",
       "styles.css",
+      "CREDITOS-DATOS.md",
       "src/**/*",
       "electron/**/*",
       "package.json",

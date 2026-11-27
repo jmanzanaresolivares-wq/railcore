@@ -1,0 +1,14 @@
+{
+  "name": "railcore-hornea-vegetacion",
+  "private": true,
+  "description": "Herramienta de desarrollo: hornea modelos CC0 de Poly Haven en impostores (atlas de 8 vistas) para la vegetación de RAILCORE.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "descargar": "node descargar.js",
+    "hornear": "node hornear.js",
+    "incrustar": "node incrustar.js"
+  },
+  "dependencies": {
+    "three": "0.158.0"
+  }
+}

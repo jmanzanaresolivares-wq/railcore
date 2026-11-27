@@ -4,7 +4,15 @@
  * exactamente el mismo resultado (determinismo, repeticiones, pruebas). */
 (function (RC) {
   var U = RC.core.util, TR = RC.core.train, AS = RC.core.asfa, SG = RC.core.signalling, TT = RC.core.timetable;
+  var CM = RC.core.comms, TC = RC.core.tcms;
   var DT = 0.05;
+
+  /* Meteorología y estado del carril (afecta a la adherencia, al parabrisas y al vaho). [Simplificado] */
+  var WEATHER = {
+    seco: { id: 'seco', name: 'Despejado · carril seco', rail: 1.0, rain: 0, humidity: 0.25 },
+    humedo: { id: 'humedo', name: 'Carril húmedo (rocío y humedad)', rail: 0.62, rain: 0, humidity: 0.9 },
+    lluvia: { id: 'lluvia', name: 'Lluvia · carril mojado', rail: 0.5, rain: 0.8, humidity: 1 }
+  };
 
   var SCENARIOS = {
     frio: { name: 'Arranque en frío en Santa Justa', startStation: 0, ready: false, clockFromDeparture: -720 },
@@ -28,12 +36,17 @@
     var ghostTT = TT.build(line, -line.precedingTrain.headway_s, line.precedingTrain.extraDwell);
     var startSt = line.stations[sc.startStation];
     var clock = sc.clock ? U.parseClock(sc.clock) : tt[sc.startStation].dep + sc.clockFromDeparture;
+    var weather = WEATHER[overrides && overrides.weather] || WEATHER.seco;
+    var tOut = U.outsideTemp(clock);
+    // Tras la noche a la intemperie el parabrisas amanece empañado si hace frío
+    var fog0 = sc.ready ? 0 : U.clamp((15 - tOut) / 10, 0, 0.6) * (0.5 + 0.5 * weather.humidity);
 
     var sim = {
       scenario: scenarioId, scenarioName: sc.name,
       DT: DT, clock: clock, startClock: clock, elapsed: 0, stepCount: 0,
       line: line, spec: spec, timetable: tt,
-      train: TR.create(spec, { ready: sc.ready, x: startSt.stopX, passengers: sc.startStation === 0 ? 0 : 150 }),
+      weather: weather,
+      train: TR.create(spec, { ready: sc.ready, x: startSt.stopX, passengers: sc.startStation === 0 ? 0 : 150, tempOut: tOut, fog: fog0 }),
       asfa: AS.create(RC.data.asfa),
       signals: SG.buildSignals(line),
       ghost: SG.createGhost(line, ghostTT),
@@ -56,8 +69,10 @@
       finished: false,
       score: 1000,
       inhibits: [],
-      radioFlags: {}
+      radioFlags: {},
+      tcms: TC.create()
     };
+    CM.create(sim, { cold: !sc.ready });
     if (sc.ready) { sim.asfa.connected = true; }
     sim.beacons = SG.buildBeacons(line, sim.signals);
     if (overrides && overrides.noGhost) sim.ghost.active = false, sim.noGhost = true;
@@ -65,7 +80,9 @@
     if (sim.noGhost) sim.ghost.active = false;
     refreshAspects(sim);
     logEvent(sim, 'scenario', 'Escenario: ' + sc.name + '. Tren ' + line.trainNumber + '.', 'info');
-    radio(sim, 'CTC Sevilla', 'Buenos días, ' + line.trainNumber.split(' ')[0] + '. Servicio Santa Justa – Utrera, salida prevista ' + U.fmtClock(tt[sc.startStation].dep) + '. Comunique cuando esté listo.');
+    radio(sim, 'Puesto de Mando', 'Buenos días, ' + line.trainNumber.split(' ')[0] + '. Servicio Santa Justa – Utrera, salida prevista ' + U.fmtClock(tt[sc.startStation].dep) + '. Radio tren-tierra en canal ' + sim.comms.zone + '. Comunique cuando esté listo.');
+    if (weather.rain > 0) logEvent(sim, 'weather', 'Meteorología: ' + weather.name + '. Adherencia reducida: use el arenado si patina o desliza.', 'warn');
+    else if (weather.rail < 1) logEvent(sim, 'weather', 'Meteorología: ' + weather.name + '. Adherencia reducida.', 'warn');
     return sim;
   }
 
@@ -97,15 +114,18 @@
 
   function applyCommand(sim, cmd) {
     var t = sim.train;
-    if (cmd.type !== 'horn' || cmd.on) resetVigil(sim, cmd.type === 'vigil');
+    // Cualquier acción del maquinista cuenta como actividad (soltar la bocina o el arenado, no)
+    if (!((cmd.type === 'horn' || cmd.type === 'sand') && !cmd.on)) resetVigil(sim, cmd.type === 'vigil');
     if (cmd.type === 'vigil') return;
+    if (TC.command(sim, cmd)) return;
+    if (CM.command(sim, cmd, function (ty, m, sv) { logEvent(sim, ty, m, sv); }, function (f, x) { radio(sim, f, x); })) return;
     if (cmd.type.indexOf('asfa:') === 0) {
       AS.button(sim.asfa, cmd.type.slice(5), { stopped: TR.stopped(t), power: TR.cabActive(t) });
       return;
     }
     if (cmd.type === 'finish') { finish(sim, 'Servicio terminado por el maquinista'); return; }
     if (cmd.type === 'radioReady') {
-      if (!sim.radioFlags.ready) { sim.radioFlags.ready = true; radio(sim, 'Maquinista', 'CTC, aquí el ' + sim.line.trainNumber.split(' ')[0] + ', tren preparado en ' + sim.line.stations[sim.nextStation].name + '.'); radio(sim, 'CTC Sevilla', 'Recibido. Atento a la señal de salida y al horario.'); }
+      if (!sim.radioFlags.ready) { sim.radioFlags.ready = true; radio(sim, 'Maquinista', 'Puesto de Mando, aquí el ' + sim.line.trainNumber.split(' ')[0] + ', tren preparado en ' + sim.line.stations[sim.nextStation].name + '.'); radio(sim, 'Puesto de Mando', 'Recibido. Atento a la señal de salida y al horario.'); }
       return;
     }
     if (cmd.type === 'doors' && cmd.action === 'open') {
@@ -149,12 +169,16 @@
     AS.step(sim.asfa, dt, vKmh);
 
     // Tren
+    var W = sim.weather;
     var env = {
       lineV: sim.line.catenary_V,
       gradePermil: TT.gradeAt(sim.line, t.x - sim.spec.length_m / 2),
       asfaConnected: sim.asfa.connected,
       asfaEmergency: sim.asfa.emergency,
-      vigilanceEmergency: v.emergency
+      vigilanceEmergency: v.emergency,
+      railFactor: W.rail, rain: W.rain, humidity: W.humidity,
+      tempOut: U.outsideTemp(sim.clock),
+      sun: W.rain > 0 ? 0 : Math.max(0, Math.sin(U.sunElevation(sim.clock) * Math.PI / 180))
     };
     var wasEmergency = t.emergency.active;
     sim.inhibits = TR.step(t, dt, env);
@@ -184,6 +208,8 @@
     stationLogic(sim, dt);
     checkRules(sim);
     radioScript(sim);
+    CM.step(sim, function (ty, m, sv) { logEvent(sim, ty, m, sv); }, function (f, x) { radio(sim, f, x); });
+    TC.step(sim);
     drainEvents(sim);
   }
 
@@ -284,14 +310,14 @@
     var f = sim.radioFlags, t = sim.train;
     if (!f.ghostDelay && sim.ghost.state === 'en Dos Hermanas' && sim.clock > sim.ghost.tt[5].arr + 40 && t.x < 13000 && t.x > 6000) {
       f.ghostDelay = true;
-      radio(sim, 'CTC Sevilla', 'Atención ' + sim.line.trainNumber.split(' ')[0] + ': el ' + sim.ghost.number.split(' ')[0] + ' está detenido en Dos Hermanas atendiendo a un viajero con movilidad reducida. Circule atento a las indicaciones de las señales.');
+      radio(sim, 'Puesto de Mando', 'Atención ' + sim.line.trainNumber.split(' ')[0] + ': el ' + sim.ghost.number.split(' ')[0] + ' está detenido en Dos Hermanas atendiendo a un viajero con movilidad reducida. Circule atento a las indicaciones de las señales.');
     }
     if (!f.departed && sim.nextStation > 0 && sim.stations[0].depTime) {
       f.departed = true;
     }
     if (!f.utrera && t.x > 27000) {
       f.utrera = true;
-      radio(sim, 'CTC Sevilla', 'Entrada en ' + sim.line.stations[sim.line.stations.length - 1].name + ', andén a la ' + sim.line.stations[sim.line.stations.length - 1].side + '. Final de trayecto.');
+      radio(sim, 'Puesto de Mando', 'Entrada en ' + sim.line.stations[sim.line.stations.length - 1].name + ', andén a la ' + sim.line.stations[sim.line.stations.length - 1].side + '. Final de trayecto.');
     }
   }
 
@@ -317,8 +343,10 @@
   /* Huella del estado para comprobar determinismo. */
   function hash(sim) {
     var t = sim.train;
-    return [sim.stepCount, t.x.toFixed(6), t.v.toFixed(6), t.air.mr.toFixed(5), t.air.bc.toFixed(5), sim.score, sim.asfa.emergency, t.passengers].join('|');
+    return [sim.stepCount, t.x.toFixed(6), t.v.toFixed(6), t.air.mr.toFixed(5), t.air.bc.toFixed(5), sim.score, sim.asfa.emergency, t.passengers,
+      t.sand.kg.toFixed(4), t.edForce.toFixed(4), t.hvac.cabT.toFixed(4), t.hvac.salonT.toFixed(4), t.screen.fog.toFixed(4), t.elec.battSoc.toFixed(6),
+      sim.comms.state, sim.tcms.events.length].join('|');
   }
 
-  RC.core.sim = { DT: DT, SCENARIOS: SCENARIOS, create: create, command: command, step: step, hash: hash, onPlatform: onPlatform };
+  RC.core.sim = { DT: DT, SCENARIOS: SCENARIOS, WEATHER: WEATHER, create: create, command: command, step: step, hash: hash, onPlatform: onPlatform };
 })(globalThis.RC);

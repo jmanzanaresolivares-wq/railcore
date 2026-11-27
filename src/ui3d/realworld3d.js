@@ -98,6 +98,7 @@
     }
     g.computeVertexNormals();
     var mat = new THREE.MeshStandardMaterial({ color: 0xb9b49a, roughness: 1, metalness: 0, side: THREE.DoubleSide });
+    if (RC.ui3d.orthohd) RC.ui3d.orthohd.groundDetail(mat);   // grano fino de cerca sobre la ortofoto
     var mesh = new THREE.Mesh(g, mat);
     mesh.receiveShadow = true;
     R.group.add(mesh);

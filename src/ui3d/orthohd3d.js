@@ -26,8 +26,8 @@
       pos.setXYZ(r * (SEG + 1) + c, x, y + 0.02, z);
     }
     g.computeVertexNormals();
-    var m = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: H.R.orthoGlow, roughness: 1, metalness: 0,
-      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+    var m = groundDetail(new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: H.R.orthoGlow, roughness: 1, metalness: 0,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
     var mesh = new THREE.Mesh(g, m);
     mesh.receiveShadow = true; mesh.renderOrder = 1;
     H.R.group.add(mesh);
@@ -93,6 +93,42 @@
       .forEach(function (kk) { if (H.loading < MAXLOAD) load(H, kk); });
   }
 
+  /* Detalle de cerca para el suelo fotográfico: de lejos manda la ortofoto; a menos de unos 60 m se
+   * le suma la textura fina (dos escalas, para que no se note la repetición) de tierra y grava CC0. */
+  var DET = null, GAIN = { value: 0.74 };   // la foto ya trae el sol: se aclara menos para no «quemar» el suelo
+  function detailTextures() {
+    if (DET) return DET;
+    var T = RC.data.textures; if (!T || !T.dry_diff || !T.ground_diff) return null;
+    function mk(src) {
+      var t = new THREE.Texture(), img = new Image();
+      img.onload = function () { t.image = img; t.needsUpdate = true; };
+      img.src = src; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+      return t;
+    }
+    return (DET = { a: mk(T.dry_diff), b: mk(T.ground_diff) });
+  }
+  function groundDetail(mat) {
+    var D = detailTextures(); if (!D) return mat;
+    mat.onBeforeCompile = function (sh) {
+      sh.uniforms.gDetA = { value: D.a }; sh.uniforms.gDetB = { value: D.b }; sh.uniforms.gGain = GAIN;
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vGW;')
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvGW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform sampler2D gDetA, gDetB; uniform float gGain; varying vec3 vGW;\n' +
+          'float gLum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }')
+        .replace('#include <map_fragment>', '#include <map_fragment>\n' +
+          'float gD = gLum(texture(gDetA, vGW.xz / 3.1).rgb) / max(0.05, gLum(textureLod(gDetA, vec2(0.5), 12.0).rgb)) * 0.5 +' +
+          ' gLum(texture(gDetB, vGW.xz / 7.3).rgb) / max(0.05, gLum(textureLod(gDetB, vec2(0.5), 12.0).rgb)) * 0.5;\n' +
+          'float gK = 0.7 * (1.0 - smoothstep(12.0, 80.0, distance(vGW, cameraPosition)));\n' +
+          'float gF = mix(1.0, clamp(gD, 0.35, 1.8), gK) * gGain;\n' +
+          'diffuseColor.rgb *= gF;')
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= gF;');
+    };
+    mat.customProgramCacheKey = function () { return 'rc-suelo-1'; };
+    return mat;
+  }
+
   RC.ui3d = RC.ui3d || {};
-  RC.ui3d.orthohd = { create: create, update: update };
+  RC.ui3d.orthohd = { create: create, update: update, groundDetail: groundDetail, gain: GAIN };
 })(globalThis.RC);

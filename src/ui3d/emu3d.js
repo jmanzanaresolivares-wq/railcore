@@ -142,12 +142,18 @@
       var top = Math.min(t, u), hh = Math.abs(u - t);
       if (col) { g.fillStyle = col; g.fillRect(a, top, b - a, hh); }
       if (emis !== undefined) { ge.fillStyle = emis; ge.fillRect(a / 2, top / 2, (b - a) / 2, hh / 2); }
-      if (rough !== undefined) { go.fillStyle = 'rgb(0,' + Math.round(rough * 255) + ',' + Math.round((metal || 0) * 255) + ')'; go.fillRect(a / 2, top / 2, (b - a) / 2, hh / 2); }
+      if (rough !== undefined) { go.fillStyle = 'rgb(' + (rough > 0.8 ? 0 : 255) + ',' + Math.round(rough * 255) + ',' + Math.round((metal || 0) * 255) + ')'; go.fillRect(a / 2, top / 2, (b - a) / 2, hh / 2); }
+    }
+    // suciedad de servicio: polvo de freno abajo y hollín en el techo
+    function grime(side, y0, y1, rgb, alpha) {
+      var t = py(side, y1), u = py(side, y0), gr = g.createLinearGradient(0, u, 0, t);
+      gr.addColorStop(0, 'rgba(' + rgb + ',' + alpha + ')'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+      g.fillStyle = gr; g.fillRect(0, Math.min(t, u), TW, Math.abs(u - t));
     }
     // fondo: pintura de la caja
     g.fillStyle = liv.body; g.fillRect(0, 0, TW, TH);
     ge.fillStyle = '#000'; ge.fillRect(0, 0, 1024, 256);
-    go.fillStyle = 'rgb(0,96,0)'; go.fillRect(0, 0, 1024, 256);
+    go.fillStyle = 'rgb(255,96,0)'; go.fillRect(0, 0, 1024, 256);
     [1, -1].forEach(function (s) {
       // techo (por encima de la línea de imposta)
       rect(s, zMin, -zMin, 3.42, YT + 0.01, liv.roof, undefined, 0.62, 0.1);
@@ -181,6 +187,8 @@
       });
       // juntas de paneles del techo
       for (var z = zMin + 1.5; z < -zMin; z += 1.5) rect(s, z, z + 0.04, 3.45, YT, 'rgba(70,75,80,0.35)');
+      grime(s, Y0 - 0.01, 0.95, '74,60,46', 0.42);
+      grime(s, 3.42, YT + 0.01, '58,54,50', 0.3);
     });
     // testeros (zona oscura reservada en la esquina de la textura)
     g.fillStyle = '#3d4248'; g.fillRect(0, 0, 6, 6);
@@ -219,12 +227,12 @@
         var w = W(y) * frac, a = X(-w), b = X(w), t = Yp(y + 0.01), h = Yp(y) - t + 0.6;
         if (col) { g.fillStyle = col; g.fillRect(a, t, b - a, h); }
         if (emis) { ge.fillStyle = emis; ge.fillRect(a / 2, t / 2, (b - a) / 2, h / 2); }
-        if (rough !== undefined) { go.fillStyle = 'rgb(0,' + Math.round(rough * 255) + ',' + Math.round((metal || 0) * 255) + ')'; go.fillRect(a / 2, t / 2, (b - a) / 2, h / 2); }
+        if (rough !== undefined) { go.fillStyle = 'rgb(255,' + Math.round(rough * 255) + ',' + Math.round((metal || 0) * 255) + ')'; go.fillRect(a / 2, t / 2, (b - a) / 2, h / 2); }
       }
     }
     g.fillStyle = liv.body; g.fillRect(0, 0, S, S);
     ge.fillStyle = '#000'; ge.fillRect(0, 0, 256, 256);
-    go.fillStyle = 'rgb(0,90,0)'; go.fillRect(0, 0, 256, 256);
+    go.fillStyle = 'rgb(255,90,0)'; go.fillRect(0, 0, 256, 256);
     band(Y0 - 0.02, 1.25, 1.01, liv.lower, null, 0.42, 0);
     band(1.25, 1.33, 1.01, liv.stripe, null, 0.4, 0);
     band(3.6, YT + 0.01, 1.01, liv.roof, null, 0.6, 0.1);
@@ -244,7 +252,7 @@
       var x0 = Math.min(a, b), x1 = Math.max(a, b), t = Yp(1.66), u = Yp(1.4), r = 10;
       g.moveTo(x0 + r, t); g.lineTo(x1 - r, t); g.quadraticCurveTo(x1, t, x1, t + r); g.lineTo(x1, u - r); g.quadraticCurveTo(x1, u, x1 - r, u);
       g.lineTo(x0 + r, u); g.quadraticCurveTo(x0, u, x0, u - r); g.lineTo(x0, t + r); g.quadraticCurveTo(x0, t, x0 + r, t); g.fill();
-      go.fillStyle = 'rgb(0,30,100)'; go.fillRect(x0 / 2, t / 2, (x1 - x0) / 2, (u - t) / 2);
+      go.fillStyle = 'rgb(255,30,100)'; go.fillRect(x0 / 2, t / 2, (x1 - x0) / 2, (u - t) / 2);
     });
     // tapa del enganche
     g.strokeStyle = 'rgba(0,0,0,0.45)'; g.lineWidth = 2; g.strokeRect(X(-0.42), Yp(1.02), X(0.42) - X(-0.42), Yp(0.68) - Yp(1.02));
@@ -444,18 +452,20 @@
     ['end', 'mid'].forEach(function (k) {
       var p = paintBody(k, liv, null);
       var orm = tex(p.orm);
-      mats[k] = new THREE.MeshStandardMaterial({ map: tex(p.color, true), emissiveMap: tex(p.emis, true), emissive: 0xffffff, emissiveIntensity: 0.1,
-        roughnessMap: orm, metalnessMap: orm, roughness: 1, metalness: 1, envMapIntensity: 1.1 });
+      mats[k] = new THREE.MeshPhysicalMaterial({ map: tex(p.color, true), emissiveMap: tex(p.emis, true), emissive: 0xffffff, emissiveIntensity: 0.1,
+        roughnessMap: orm, metalnessMap: orm, roughness: 1, metalness: 1, envMapIntensity: 2.2,
+        clearcoat: 1, clearcoatRoughness: 0.08, clearcoatMap: orm });
       bodies[k] = { paint: p, geo: bodyGeometry(k), detail: detailGeometry(k, liv), lay: p.lay };
       if (k === 'end') bodies[k].detailTail = detailGeometry(k, liv, false);
     });
     var f = paintFront(liv), form = tex(f.orm);
-    mats.cap = new THREE.MeshStandardMaterial({ map: tex(f.color, true), emissiveMap: tex(f.emis, true), emissive: 0xffffff, emissiveIntensity: 0.1,
-      roughnessMap: form, metalnessMap: form, roughness: 1, metalness: 1, envMapIntensity: 1.2 });
+    mats.cap = new THREE.MeshPhysicalMaterial({ map: tex(f.color, true), emissiveMap: tex(f.emis, true), emissive: 0xffffff, emissiveIntensity: 0.1,
+      roughnessMap: form, metalnessMap: form, roughness: 1, metalness: 1, envMapIntensity: 2.4,
+      clearcoat: 1, clearcoatRoughness: 0.06, clearcoatMap: form });
     mats.detail = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.35 });
     mats.door = new THREE.MeshStandardMaterial({ map: tex(paintDoor(liv), true), roughness: 0.35, metalness: 0.15, side: THREE.DoubleSide });
-    mats.wheel = new THREE.MeshStandardMaterial({ color: 0x75797e, roughness: 0.4, metalness: 0.85 });
-    mats.panto = new THREE.MeshStandardMaterial({ color: 0x8b9096, roughness: 0.45, metalness: 0.7 });
+    mats.wheel = new THREE.MeshStandardMaterial({ color: 0x75797e, roughness: 0.4, metalness: 0.85, envMapIntensity: 1.8 });
+    mats.panto = new THREE.MeshStandardMaterial({ color: 0x8b9096, roughness: 0.38, metalness: 0.8, envMapIntensity: 1.8 });
     mats.insul = new THREE.MeshStandardMaterial({ color: 0xd8d4c8, roughness: 0.4, metalness: 0 });
     mats.carbon = new THREE.MeshStandardMaterial({ color: 0x1b1b1b, roughness: 0.6 });
     // logotipo de la marca en los costados cuando cargue la imagen

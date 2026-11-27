@@ -1,0 +1,40 @@
+name: Ortofoto de alta resolución junto a la vía
+
+# Descarga la ortofoto PNOA del IGN a ≈0,3 m/píxel en una franja de ±70 m alrededor
+# de la vía de la C-1 y la guarda ya preparada para el juego en src/data/c1/ortohd/.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/route/fetch-ortohd.mjs'
+      - '.github/workflows/orto-hd.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: orto-hd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  descargar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar herramientas
+        working-directory: tools/route
+        run: npm ci --no-audit --no-fund
+      - name: Descargar ortofoto HD
+        run: node tools/route/fetch-ortohd.mjs
+        timeout-minutes: 50
+      - name: Guardar en la rama
+        run: |
+          git config user.name "railcore-datos[bot]"
+          git config user.email "railcore-datos@users.noreply.github.com"
+          git add src/data/c1/ortohd src/data/c1/ortohd-indice.js
+          git commit -m "Ortofoto PNOA de alta resolución junto a la vía (descargada por GitHub Actions)" || exit 0
+          for i in 1 2 3; do git pull --rebase --no-edit && git push && break; sleep 5; done

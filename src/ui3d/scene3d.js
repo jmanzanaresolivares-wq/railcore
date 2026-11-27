@@ -35,8 +35,13 @@
 
     // Cielo de dispersión atmosférica (modelo de Preetham)
     var sky = new THREE.Sky(); sky.scale.setScalar(12000); scene.add(sky);
+    var clouds = RC.ui3d.clouds && !(opts && opts.clouds === false) ? RC.ui3d.clouds.create(scene) : null;
     var su = sky.material.uniforms;
-    su.turbidity.value = 5; su.rayleigh.value = 1.6; su.mieCoefficient.value = 0.006; su.mieDirectionalG.value = 0.82;
+    su.turbidity.value = 3; su.rayleigh.value = 1.3; su.mieCoefficient.value = 0.004; su.mieDirectionalG.value = 0.82;
+    // Brillo propio del cielo: con el tono fílmico, a plena intensidad se queda casi blanco
+    su.skyScale = { value: 0.55 };
+    sky.material.fragmentShader = 'uniform float skyScale;\n' + sky.material.fragmentShader.replace('gl_FragColor = vec4( retColor, 1.0 );', 'gl_FragColor = vec4( retColor * skyScale, 1.0 );');
+    sky.material.needsUpdate = true;
     var sunDir = new THREE.Vector3();
     var sun = new THREE.DirectionalLight(0xfff1dc, 1.0); scene.add(sun); scene.add(sun.target);
     sun.castShadow = true;
@@ -61,7 +66,7 @@
     var look = { yaw: 0, pitch: -0.3, tYaw: 0, tPitch: -0.3, fov: 66 };
     // Vistas exteriores: 0 cabina, 1 exterior (órbita), 2 junto a la vía
     var ext = { mode: 0, yaw: 0.62, pitch: 0.14, dist: 30, fov: 34, side: null };
-    var S = { renderer: renderer, scene: scene, camera: camera, world: world, cab: cab, rig: rig, sky: sky, sun: sun, hemi: hemi, head: head, look: look, ext: ext, sim: sim, hover: null, active: null, send: send, opts: opts || {} };
+    var S = { renderer: renderer, scene: scene, camera: camera, world: world, cab: cab, rig: rig, sky: sky, clouds: clouds, sun: sun, hemi: hemi, head: head, look: look, ext: ext, sim: sim, hover: null, active: null, send: send, opts: opts || {} };
     S.traffic = RC.ui3d.traffic ? RC.ui3d.traffic.create(scene, world, sim) : null;
     if (S.traffic && S.traffic.own) [S.traffic.own, S.traffic.ghost].concat(S.traffic.opp).forEach(function (T) { W3.markShadows(T.group); });
 
@@ -257,6 +262,13 @@
     // Reparto de luz como en un día real: el sol directo manda y el cielo rellena las sombras
     var LC = S.light || (S.light = { sun: 3.0, sky: 0.22, hemi: 0.08, exposure: 0.9 });
     S.sun.intensity = LC.sun * U.clamp((elevDeg + 1) / 10, 0, 1);
+    // Nubes: derivan con el viento y, si tapan el sol, la luz directa baja
+    if (S.clouds) {
+      var dusk = U.clamp(1 - Math.abs(elevDeg - 2) / 12, 0, 1);
+      var clear = RC.ui3d.clouds.update(S.clouds, camPos, sunDir, sim.clock, day, dusk);
+      S.sunClear = S.sunClear === undefined ? clear : S.sunClear + (clear - S.sunClear) * Math.min(1, dt * 0.8);
+      S.sun.intensity *= S.sunClear;
+    }
     // Sombras sólo con sol: delante de la cabina, o alrededor del tren en las vistas exteriores
     S.sun.castShadow = elevDeg > 0.5 && S.opts.shadows !== false;
     if (S.sun.castShadow) placeShadow(S, sunDir, exterior ? (S.ext.mode === 1 ? S.ext.dist : 60) : 48);
@@ -272,7 +284,7 @@
       var es = S.envSky || (S.envSky = new THREE.Sky());
       if (!S.envScene) {
         S.envScene = new THREE.Scene(); es.scale.setScalar(1000); S.envScene.add(es);
-        for (var k in S.sky.material.uniforms) es.material.uniforms[k].value = S.sky.material.uniforms[k].value;
+        for (var k in S.sky.material.uniforms) if (es.material.uniforms[k]) es.material.uniforms[k].value = S.sky.material.uniforms[k].value;
         // El cielo de los reflejos se atenúa: si no, su luz difusa borra las sombras del sol
         es.material.uniforms.envScale = { value: 1 };
         es.material.fragmentShader = 'uniform float envScale;\n' + es.material.fragmentShader.replace('gl_FragColor = vec4( retColor, 1.0 );', 'gl_FragColor = vec4( retColor * envScale, 1.0 );');

@@ -111,6 +111,7 @@
       var img = new Image();
       img.onload = function () {
         if (!tile.mesh) return;
+        if (RC.ui3d.vegetation) RC.ui3d.vegetation.tileReady(R, tile, img);   // árboles según la ortofoto (vegetation3d.js)
         var t = new THREE.Texture(img); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.needsUpdate = true;
         // La ortofoto ya trae la luz del día: parte se pinta como emisiva para no apagarla
         mat.map = t; mat.emissiveMap = t; mat.emissive.setHex(0xffffff); mat.emissiveIntensity = R.orthoGlow;
@@ -123,6 +124,7 @@
   }
 
   function disposeTile(R, tile) {
+    if (RC.ui3d.vegetation) RC.ui3d.vegetation.disposeTile(R, tile);   // fuera la vegetación de la tesela (vegetation3d.js)
     R.group.remove(tile.mesh);
     tile.mesh.geometry.dispose();
     if (tile.mesh.material.map) tile.mesh.material.map.dispose();
@@ -285,6 +287,7 @@
   /* Carga/descarga de teselas alrededor del tren (radio en km). */
   function update(W, sim, night, force, cam) {
     var R = W.real; if (!R) return;
+    if (RC.ui3d.vegetation) RC.ui3d.vegetation.update(W, sim, night);   // árboles y hierba, cada fotograma (vegetation3d.js)
     var glow = 0.3 * (1 - (night || 0));
     if (Math.abs(glow - R.orthoGlow) > 0.01) { R.orthoGlow = glow; for (var tk in R.tiles) if (R.tiles[tk].mesh) R.tiles[tk].mesh.material.emissiveIntensity = glow; }
     if (RC.ui3d.buildings) RC.ui3d.buildings.update(R, night || 0, R.orthoGlow);

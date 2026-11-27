@@ -5,7 +5,7 @@ const vm = require('vm');
 const FILES = [
   'src/core/namespace.js', 'src/core/util.js',
   'src/data/civia.js', 'src/data/asfa.js', 'src/data/line-c1.js', 'src/data/brand.js', 'src/data/c1/line-c1-real.js',
-  'src/core/train.js', 'src/core/asfa.js', 'src/core/timetable.js',
+  'src/core/train.js', 'src/core/asfa.js', 'src/core/comms.js', 'src/core/tcms.js', 'src/core/timetable.js',
   'src/core/signalling.js', 'src/core/sim.js', 'src/core/report.js', 'src/core/autopilot.js'
 ];
 module.exports = function load() {

@@ -19,6 +19,12 @@
     { type: 'mainCompressor', mode: 'auto' },
     { type: 'asfa:conex' },
     { type: 'headlights', mode: 1 },
+    { type: 'markers', on: true },
+    { type: 'tailLights', on: true },
+    { type: 'hvacCab', on: true },
+    { type: 'hvacSalon', on: true },
+    { fn: function (sim) { return sim.train.screen.fog > 0.05 ? { type: 'demister', on: true } : null; } },
+    { fn: function (sim) { return sim.service.dest !== sim.service.expectedDest ? { type: 'dest', value: sim.service.expectedDest } : null; } },
     { wait: function (sim) { return sim.train.air.mr >= 6.5 && sim.asfa.connected; } },
     { type: 'parking', apply: false },
     { type: 'reverser', pos: 1 },
@@ -26,7 +32,7 @@
   ];
 
   function create(opts) {
-    return { script: (opts && opts.cold) ? COLD_START.slice() : [{ type: 'reverser', pos: 1 }, { type: 'radioReady' }], lastVigil: 0, phase: 'run' };
+    return { script: (opts && opts.cold) ? COLD_START.slice() : [{ type: 'reverser', pos: 1 }, { type: 'radioReady' }], lastVigil: 0, phase: 'run', paNext: -1, paDoors: -1 };
   }
 
   function nextSignalAhead(sim, x) {
@@ -71,8 +77,16 @@
     while (ap.script.length) {
       var s = ap.script[0];
       if (s.wait) { if (!s.wait(sim)) return; ap.script.shift(); continue; }
+      if (s.fn) { ap.script.shift(); var c = s.fn(sim); if (c) { cmd(c); return; } continue; }
       cmd(ap.script.shift());
       return;
+    }
+    // Sistemas de cabina: limpiaparabrisas con lluvia, luneta con vaho y arenado si patina o desliza
+    if (TR.controlPower(t)) {
+      if (sim.weather && sim.weather.rain > 0 && t.controls.wipers === 0) cmd({ type: 'wipers', mode: 2 });
+      if (t.screen.fog > 0.3 && !t.controls.demister) cmd({ type: 'demister', on: true });
+      var slipping = t.adhesion.slipping || t.adhesion.sliding;
+      if (slipping !== t.sand.button) cmd({ type: 'sand', on: slipping });
     }
     // ASFA: reconocer balizas
     if (sim.asfa.pendingRec) cmd({ type: 'asfa:recAnPar' });
@@ -92,6 +106,10 @@
         cmd({ type: 'doors', side: side, action: 'open' });
         return;
       }
+      if (t.doors[cmdKey] === 'open' && pending === 0 && tt.dep !== null && sim.clock >= tt.dep - 14 && ap.paDoors !== i) {
+        ap.paDoors = i;
+        cmd({ type: 'pa', msg: 'doors' });   // aviso de cierre de puertas por megafonía
+      }
       if (t.doors[cmdKey] === 'open' && pending === 0 && tt.dep !== null && sim.clock >= tt.dep - 8) {
         ss.doorsDone = true;
         cmd({ type: 'doors', action: 'close' });
@@ -104,6 +122,11 @@
     }
 
     var v = Math.abs(t.v), target = targetSpeed(sim);
+    // Megafonía: próxima estación al salir de cada andén
+    if (sim.atStation < 0 && v > 6 && ap.paNext !== sim.nextStation && sim.nextStation < sim.line.stations.length) {
+      ap.paNext = sim.nextStation;
+      cmd({ type: 'pa', msg: 'next' });
+    }
     var aDes = U.clamp((target - v) / 2.5, -1.0, 0.8);
     var lever;
     if (target < 0.05 && v < 0.3) lever = -5;

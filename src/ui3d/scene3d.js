@@ -56,6 +56,8 @@
     var world = W3.build(scene, sim);
     var rig = new THREE.Group(); scene.add(rig);
     var cab = RC.ui3d.cab.build(rig);
+    // [Cabina] Gancho: sólo marca castShadow/receiveShadow en las mallas de la cabina (no toca renderer ni sol)
+    if (RC.ui3d.cab.shadows) RC.ui3d.cab.shadows(renderer, sun);
     rig.add(camera); camera.position.copy(RC.ui3d.cab.EYE);
 
     // Faros

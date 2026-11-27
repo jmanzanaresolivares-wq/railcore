@@ -98,6 +98,20 @@
     ctl(g5, 'emReset', 'Rearme emergencia', click(function () { send({ type: 'emergencyReset' }); }));
     ctl(g5, 'seta', 'SETA EMERGENCIA', click(function () { send({ type: 'seta', on: !T().controls.seta }); }), 'danger');
 
+    // --- Sistemas de cabina ---
+    var p6 = panel('Sistemas');
+    var g6 = el('div', 'grid2'); p6.appendChild(g6);
+    ctl(g6, 'sand', 'Arenado (A)', function (down) { send({ type: 'sand', on: !!down }); });
+    ctl(g6, 'hornLow', 'Bocina baja (J)', function (down) { send({ type: 'horn', on: !!down, tone: 'baja' }); });
+    ctl(g6, 'reg', 'Regulador (G)', click(function () { send({ type: 'regulator', on: !T().reg.on }); }));
+    ctl(g6, 'regSet', 'Consigna +5 (+)', click(function () { var r = T().reg; send({ type: 'regulatorSet', kmh: r.set_kmh >= T().spec.vmax_kmh ? 30 : r.set_kmh + 5 }); }));
+    ctl(g6, 'washer', 'Lavaparabrisas', click(function () { send({ type: 'washer' }); }));
+    ctl(g6, 'demister', 'Luneta (D)', click(function () { send({ type: 'demister', on: !T().controls.demister }); }));
+    ctl(g6, 'hvacSalon', 'Clima salón', click(function () { send({ type: 'hvacSalon', on: !T().hvac.salonOn }); }));
+    ctl(g6, 'pa', 'Megafonía (F2)', click(function () { send({ type: 'pa', msg: 'next' }); }));
+    ctl(g6, 'radioCall', 'Radio P. Mando (F4)', click(function () { send({ type: 'radio:call' }); }));
+    ctl(g6, 'radioCh', 'Canal radio (F8)', click(function () { send({ type: 'radio:channel', delta: 1 }); }));
+
     ui.update = function (sim, opts) { update(ui, sim, opts || {}); };
     return ui;
   }
@@ -132,7 +146,17 @@
     setCtl(C.parking, !a.parking, a.parking ? 'Aplicado' : 'Aflojado');
     setCtl(C.lights, c.headlights > 0, ['Apagados', 'Cruce', 'Largo alcance'][c.headlights]);
     setCtl(C.cabLight, c.cabLight, c.cabLight ? 'Encendido' : 'Apagado');
-    setCtl(C.wipers, c.wipers, c.wipers ? 'En marcha' : 'Parado');
+    setCtl(C.wipers, c.wipers, RC.core.train.WIPER_NAMES[c.wipers]);
+    setCtl(C.sand, t.sand.active, Math.round(t.sand.kg) + ' kg' + (t.sand.active ? ' · arenando' : ''));
+    setCtl(C.hornLow, c.hornLow, '');
+    setCtl(C.reg, t.reg.on, t.reg.on ? t.reg.set_kmh + ' km/h' + (t.reg.active ? ' · activo' : '') : 'Desconectado');
+    setCtl(C.regSet, false, 'Consigna ' + t.reg.set_kmh);
+    setCtl(C.washer, c.washer > 0, t.screen.washerL.toFixed(1) + ' L');
+    setCtl(C.demister, c.demister, 'Vaho ' + Math.round(t.screen.fog * 100) + ' %');
+    setCtl(C.hvacSalon, t.hvac.salonOn, t.hvac.salonT.toFixed(1) + ' °C');
+    setCtl(C.pa, !!sim.pa.active, sim.pa.active ? 'Emitiendo' : '');
+    setCtl(C.radioCall, sim.comms.state !== 'reposo', sim.comms.state);
+    setCtl(C.radioCh, sim.comms.channel === sim.comms.zone, 'Canal ' + sim.comms.channel + (sim.comms.channel !== sim.comms.zone ? ' (zona ' + sim.comms.zone + ')' : ''), sim.comms.channel !== sim.comms.zone);
     setCtl(C.rev1, c.reverser === 1, ''); setCtl(C.rev0, c.reverser === 0, ''); setCtl(C['rev-1'], c.reverser === -1, '');
     setCtl(C.doorL, t.doors.left > 0, t.doors.left >= 1 ? 'Abiertas' : t.doors.left > 0 ? 'Moviéndose' : '');
     setCtl(C.doorR, t.doors.right > 0, t.doors.right >= 1 ? 'Abiertas' : t.doors.right > 0 ? 'Moviéndose' : '');

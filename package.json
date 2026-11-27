@@ -9,7 +9,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node --test tests/core.test.js",
+    "test": "node --test tests/core.test.js tests/sistemas.test.js",
     "dist:win": "electron-builder --win portable nsis --x64 --publish never",
     "dist:win-zip": "electron-builder --win zip --x64 --publish never"
   },

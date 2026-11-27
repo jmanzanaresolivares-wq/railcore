@@ -66,7 +66,33 @@ También se puede jugar sin instalar nada abriendo `index.html` en Chrome o Edge
 - **Tráfico**: el tren precedente es una unidad completa que abre puertas en las estaciones, y
   por la vía 2 vienen trenes hacia Santa Justa cada 20 minutos (sólo ambiente, no afectan a las
   señales).
-- **Hora de salida a elegir**: amanecer, mediodía, atardecer o noche.
+- **Hora de salida a elegir**: amanecer, mediodía, atardecer o noche. **Meteorología**:
+  despejado, carril húmedo o lluvia (menos adherencia, gotas en el parabrisas).
+- **Cabina completa** (modelo original inspirado en la disposición de un puesto de Cercanías
+  moderno): pupitre envolvente con biselados, frente de instrumentos, consolas laterales de
+  megafonía y radio, panel de techo, armario de servicios, cortinilla parasol, asiento, pedal de
+  hombre muerto, ventanillas, puerta al salón y limpiaparabrisas por fuera. Texturas CC0 de Poly
+  Haven (`assets/textures-cabina/CREDITS.md`), rótulos en español en todos los mandos y
+  retroiluminación nocturna de rótulos, esferas y pantallas (con atenuador).
+- **Sistemas de la cabina**, todos en el núcleo determinista y visibles en las pantallas:
+  - **Adherencia y arenado**: la adherencia depende de la velocidad y del carril (seco, húmedo,
+    mojado); el antipatinaje recorta la tracción y el antideslizamiento el freno; los areneros
+    (neumáticos, con depósito que se gasta) actúan solos al patinar o deslizar o con el pulsador.
+  - **Freno eléctrico de recuperación** mezclado con el neumático (se desvanece por debajo de
+    9 km/h; la energía devuelta se contabiliza).
+  - **Regulador de velocidad** con consigna de 5 en 5 km/h: el manipulador en tracción limita el
+    esfuerzo; freno o neutro lo anulan (el maquinista siempre manda).
+  - **Bocina de dos tonos** (alto y bajo), **alumbrado** (faros de cruce y largo alcance, luces
+    de posición, pilotos de cola, luz de cabina y de pupitre, atenuador).
+  - **Parabrisas**: limpiaparabrisas con intermitente y dos velocidades (las escobillas barren
+    de verdad las gotas), lavaparabrisas con depósito, luneta térmica contra el vaho.
+  - **Climatización** de cabina (consigna) y del salón, con modelo térmico y temperatura exterior.
+  - **Baterías** con estado de carga y convertidor estático que las recarga.
+  - **Megafonía** con gong, voz y texto en pantalla; **radio tren-tierra** con canales por zona,
+    llamada al Puesto de Mando (respuestas según la situación) y llamada de emergencia.
+  - **Indicador de destino y número de tren** (los datos quedan listos para el rótulo exterior).
+  - **TCMS** (pantalla de estado) con páginas de tracción, freno, puertas, alta tensión,
+    climatización y averías/eventos, alarmas por gravedad y reconocimiento.
 
 - **Tres escenarios**: arranque en frío en Santa Justa, tren preparado en Santa Justa y
   servicio corto Dos Hermanas → Utrera.
@@ -99,14 +125,24 @@ También se puede jugar sin instalar nada abriendo `index.html` en Chrome o Edge
 | Q · E | ASFA: reconocer baliza · rearme de freno |
 | Espacio | Vigilancia (hombre muerto) |
 | Z / X · C | Abrir puertas izquierda / derecha · cerrar |
-| H · L · B | Bocina · faros · freno de estacionamiento |
+| H · J (mantener) | Bocina tono alto · tono bajo |
+| L · Mayús + L · B | Faros · luz de cabina · freno de estacionamiento |
+| A (mantener) | Arenado |
+| G · + / − (Re Pág / Av Pág) | Regulador de velocidad: conectar/desconectar · consigna ±5 km/h |
+| K · Mayús + K · D | Limpiaparabrisas (0/INT/1/2) · lavaparabrisas · luneta térmica |
+| , / . | Intensidad de pantallas y rótulos |
+| 5 6 7 8 9 0 | TCMS: tracción · freno · puertas · alta tensión · climatización · averías (0 otra vez: reconocer) |
+| F2 · F3 | Megafonía: próxima estación · cierre de puertas |
+| F4 · F8 · F9 | Radio: llamar al Puesto de Mando · canal siguiente · emergencia |
 | T · P · F1 | Acelerar tiempo · pausa · ayuda |
 | F11 | Pantalla completa (en el .exe) |
 | V | Cambiar de vista: cabina / exterior / junto a la vía |
 | 1 / 2 / 3 / 4 | Cabina 3D: frente / armario de servicios / pupitre / ventanilla |
 | Botón derecho + arrastrar | Mirar alrededor en la cabina 3D |
 
-Todos los mandos del pupitre también se pueden pulsar con el ratón.
+Todos los mandos de la cabina también se pueden pulsar con el ratón (la rueda gira los selectores y
+mueve el manipulador; Mayús + clic gira un selector hacia atrás). Destino, número de tren, los demás
+avisos de megafonía, la climatización y los mandos del armario de servicios están en sus paneles.
 
 ## Cómo está hecho
 
@@ -128,6 +164,11 @@ Todos los mandos del pupitre también se pueden pulsar con el ratón.
   cambios visuales sin abrir el juego.
 - `assets/textures/` — texturas CC0 de Poly Haven (ver `CREDITS.md`); `tools/embed-textures.js` las incrusta en `src/data/textures-data.js`.
 - `assets/vegetacion/` — árboles, matas y hierba: modelos CC0 de Poly Haven horneados en impostores de 8 vistas con `tools/vegetacion/` (ver `CREDITS.md`); `src/ui3d/vegetation3d.js` los planta donde la ortofoto muestra copas y prados.
+- `assets/textures-cabina/` — texturas CC0 de Poly Haven de la cabina (ver `CREDITS.md`);
+  `tools/embed-cab-textures.js` las incrusta en `src/data/cab-textures-data.js`. La cabina se
+  construye en `src/ui3d/cab3d.js` con las utilidades de `src/ui3d/cabkit3d.js` y sus pantallas
+  se dibujan en `src/ui3d/displays3d.js`. Megafonía, radio y servicio: `src/core/comms.js`;
+  TCMS: `src/core/tcms.js`.
 - `electron/` — envoltorio de escritorio para generar el `.exe`.
 - `tests/` — pruebas: física, enclavamientos, ASFA, señales, determinismo y tres servicios
   completos conducidos por el maquinista automático sin ninguna falta.

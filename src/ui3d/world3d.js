@@ -217,6 +217,7 @@
     var T = RC.ui3d.pbr;
     var M = {
       ground: T('ground', [35, 1], { color: 0xcfcfb8 }),
+      cess: T('dry', [3, 1], { color: 0xc4b8a4 }),   // paseo de tierra junto al balasto (textura a escala real)
       ballast: T('ballast', [1, 1]),
       rail: new THREE.MeshStandardMaterial({ color: 0xc9ccd1, metalness: 0.9, roughness: 0.28 }),
       railSide: T('rust', [0.05, 1], { color: 0x9a7a62 }),
@@ -233,7 +234,7 @@
 
     // Terreno: ancha cinta que sigue el perfil, algo por debajo del carril
     if (line.real) {   // con terreno real sólo la plataforma de la vía; el resto lo pone realworld3d
-      root.add(ribbon(al, X0, X1, 10, function (x) { return off2(x) - 4.2; }, 4.2, -0.9, -0.9, M.ground, 40));
+      root.add(ribbon(al, X0, X1, 10, function (x) { return off2(x) - 4.2; }, 4.2, -0.9, -0.9, M.cess, 4));
     } else root.add(ribbon(al, X0, X1, 20, -700, 700, -0.9, -0.9, M.ground, 40));
     // Balasto y carriles de las dos vías
     root.add(ribbon(al, X0, X1, 10, function (x) { return off2(x) + 1.4; }, -1.4, 0, 0, M.ballast, 1.5));   // entrevía
@@ -432,7 +433,7 @@
     if (line.real && RC.ui3d.realworld) RC.ui3d.realworld.build(W, sim);
     if (RC.ui3d.stations) RC.ui3d.stations.build(W, sim);
     // Suelos, balasto, carriles y traviesas sólo reciben sombra (proyectarla no se ve y cuesta)
-    [M.ground, M.ballast, M.rail, M.railSide, M.sleeper].forEach(function (m) { if (m) m.userData.noCast = true; });
+    [M.ground, M.cess, M.ballast, M.rail, M.railSide, M.sleeper].forEach(function (m) { if (m) m.userData.noCast = true; });
     markShadows(root);
     return W;
   }

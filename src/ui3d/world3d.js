@@ -96,6 +96,27 @@
   /* Valor fijo o función de x (para desplazamientos que cambian a lo largo de la vía). */
   function val(v, x) { return typeof v === 'function' ? v(x) : v; }
 
+  /* Catenaria: vano de 60 m; el hilo de contacto se descentra ±20 cm alternando en cada poste
+   * (zigzag) para que no gaste siempre el mismo punto del frotador. */
+  var SPAN = 60;
+  function stagger(k, track2) { return ((k + (track2 ? 1 : 0)) % 2 === 0 ? 0.2 : -0.2); }
+  /* Une geometrías (ya colocadas, o [geo, dx, dy, dz]) en una sola con posición y normal. */
+  function mergeGeos(list) {
+    var pos = [], nor = [], idx = [], base = 0;
+    list.forEach(function (it) {
+      var g = Array.isArray(it) ? it[0].clone().translate(it[1], it[2], it[3]) : it;
+      if (g.index) g = g.toNonIndexed();
+      var p = g.attributes.position, n = g.attributes.normal;
+      for (var i = 0; i < p.count; i++) { pos.push(p.getX(i), p.getY(i), p.getZ(i)); nor.push(n.getX(i), n.getY(i), n.getZ(i)); idx.push(base + i); }
+      base += p.count; g.dispose();
+    });
+    var out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    out.setIndex(idx);
+    return out;
+  }
+
   /* Cinta a lo largo de la vía entre dos desplazamientos laterales (números o funciones de x). */
   function ribbon(al, x0, x1, step, offL, offR, upL, upR, material, vScale) {
     var pos = [], uv = [], idx = [], k = 0;
@@ -240,31 +261,68 @@
     // van detrás del andén; bajo la nave de Santa Justa y en la estación subterránea el hilo cuelga del techo.
     var Zs = RC.ui3d.stations ? RC.ui3d.stations.zones(line) : [];
     function zoneAtX(x) { for (var i = 0; i < Zs.length; i++) if (x > Zs[i].x0 - 5 && x < Zs[i].x1 + 5) return Zs[i]; return null; }
-    var poleGeo = new THREE.BoxGeometry(0.25, 7.6, 0.25), armGeo = new THREE.BoxGeometry(4.0, 0.12, 0.12);
-    var polesN = Math.ceil((X1 - X0) / 60) * 2;
-    var poles = new THREE.InstancedMesh(poleGeo, M.pole, polesN), arms = new THREE.InstancedMesh(armGeo, M.pole, polesN);
-    var dummy = new THREE.Object3D(), k = 0;
-    for (var px = X0; px < X1; px += 60) {
+    // Poste en H (perfil HEB galvanizado) con su macizo de hormigón
+    var poleGeo = mergeGeos([[new THREE.BoxGeometry(0.22, 8.0, 0.016), 0, 0, 0.1], [new THREE.BoxGeometry(0.22, 8.0, 0.016), 0, 0, -0.1], [new THREE.BoxGeometry(0.012, 8.0, 0.2), 0, 0, 0]]);
+    var footGeo = new THREE.BoxGeometry(0.75, 0.5, 0.75);
+    var polesN = Math.ceil((X1 - X0) / SPAN) * 2;
+    var poles = new THREE.InstancedMesh(poleGeo, M.pole, polesN), feet = new THREE.InstancedMesh(footGeo, M.concrete, polesN);
+    var dummy = new THREE.Object3D(), k = 0, mi = 0;
+    var M_ins = new THREE.MeshStandardMaterial({ color: 0x7a4a32, roughness: 0.35, metalness: 0 });   // aisladores de porcelana
+    var cantChunks = {}, insChunks = {};
+    function chunkOf(store, x) { var c = Math.floor(x / 1000); return store[c] || (store[c] = []); }
+    function tube(list, m4, x0, y0, x1, y1, r) {
+      var dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy);
+      var g = new THREE.CylinderGeometry(r, r, len, 6, 1, true);
+      g.rotateZ(-Math.atan2(dx, dy)); g.translate((x0 + x1) / 2, (y0 + y1) / 2, 0); g.applyMatrix4(m4);
+      list.push(g);
+    }
+    for (var px = X0, kk = 0; px < X1; px += SPAN, kk++) {
       var zz = zoneAtX(px);
       if (zz && zz.kind !== 'surface') continue;
       var o2p = off2(px), sidePl = zz && !zz.island;
-      [[sidePl ? 1.72 + zz.pw + 0.6 : 3.6, -0.3], [sidePl ? o2p - 1.72 - zz.pw - 0.6 : o2p - 3.6, o2p + 0.3]].forEach(function (pp) {
-        place(dummy, al, px, pp[0], 3.8); dummy.updateMatrix(); poles.setMatrixAt(k, dummy.matrix);
-        var len = Math.abs(pp[0] - pp[1]);
-        place(dummy, al, px, (pp[0] + pp[1]) / 2, 6.9); dummy.scale.set(len / 4.0, 1, 1); dummy.updateMatrix(); arms.setMatrixAt(k, dummy.matrix);
-        dummy.scale.set(1, 1, 1);
+      [[sidePl ? 1.72 + zz.pw + 0.6 : 3.6, 0], [sidePl ? o2p - 1.72 - zz.pw - 0.6 : o2p - 3.6, o2p]].forEach(function (pp) {
+        place(dummy, al, px, pp[0], 4.0); dummy.updateMatrix(); poles.setMatrixAt(k, dummy.matrix);
+        place(dummy, al, px, pp[0], -0.05); dummy.updateMatrix(); feet.setMatrixAt(k, dummy.matrix);
         k++;
+        // Ménsula: tubo inclinado y tirante con aisladores junto al poste; brazo de atirantado al hilo
+        place(dummy, al, px, pp[0], 0); dummy.updateMatrix();
+        var m4 = dummy.matrix.clone(), d = pp[1] - pp[0], sg = d > 0 ? 1 : -1, stg = stagger(kk, pp[1] !== 0);
+        var cl = chunkOf(cantChunks, px), il = chunkOf(insChunks, px), xe = d + sg * 0.35;
+        tube(cl, m4, sg * 0.75, 6.25 + 0.8 * 0.63 / Math.abs(xe), xe, 7.05, 0.03);
+        tube(cl, m4, sg * 0.75, 7.55 - 0.5 * 0.63 / Math.abs(xe), xe, 7.05, 0.024);
+        tube(il, m4, sg * 0.12, 6.25, sg * 0.75, 6.25 + 0.8 * 0.63 / Math.abs(xe), 0.065);
+        tube(il, m4, sg * 0.12, 7.55, sg * 0.75, 7.55 - 0.5 * 0.63 / Math.abs(xe), 0.055);
+        var xa = d + stg - sg * 1.0, ya = 6.25 + (7.05 - 6.25) * (xa - sg * 0.12) / (xe - sg * 0.12);
+        tube(cl, m4, xa, ya, xa, 5.76, 0.02);
+        tube(cl, m4, xa, 5.76, d + stg, 5.62, 0.016);
+        tube(cl, m4, d, 7.05, d, 6.93, 0.02);
+        mi++;
       });
     }
-    poles.count = k; arms.count = k;
-    root.add(poles); root.add(arms);
+    poles.count = feet.count = k;
+    poles.computeBoundingSphere(); feet.computeBoundingSphere();
+    root.add(poles); root.add(feet);
+    for (var ck in cantChunks) root.add(new THREE.Mesh(mergeGeos(cantChunks[ck]), M.pole));
+    for (ck in insChunks) root.add(new THREE.Mesh(mergeGeos(insChunks[ck]), M_ins));
+    // Hilo de contacto en zigzag (±20 cm en cada poste), sustentador con su flecha y péndolas
     [0, off2].forEach(function (off) {
-      [5.6, 6.8].forEach(function (hh) {
-        var pts = [];
-        for (var x = X0; x <= X1; x += 15) pts.push(at(al, x, val(off, x), hh));
-        var g = new THREE.BufferGeometry().setFromPoints(pts);
-        root.add(new THREE.Line(g, M.wire));
-      });
+      var two = off !== 0, cw = [], mw = [], dr = [];
+      for (var x = X0; x <= X1; x += 5) {
+        var q = (x - X0) / SPAN, kx = Math.floor(q), u = q - kx;
+        var st = stagger(kx, two) * (1 - u) + stagger(kx + 1, two) * u;
+        cw.push(at(al, x, val(off, x) + st, 5.6));
+        mw.push(at(al, x, val(off, x), 7.0 - 0.45 * 4 * u * (1 - u)));
+      }
+      for (var sx = X0; sx < X1; sx += SPAN) {
+        [0.12, 0.27, 0.42, 0.58, 0.73, 0.88].forEach(function (u) {
+          var x = sx + u * SPAN, kx = Math.round((sx - X0) / SPAN);
+          var st = stagger(kx, two) * (1 - u) + stagger(kx + 1, two) * u;
+          dr.push(at(al, x, val(off, x) + st, 5.6), at(al, x, val(off, x), 7.0 - 0.45 * 4 * u * (1 - u)));
+        });
+      }
+      root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(cw), M.wire));
+      root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(mw), M.wire));
+      root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(dr), M.wire));
     });
 
     // Señales

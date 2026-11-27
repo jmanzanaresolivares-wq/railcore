@@ -54,6 +54,10 @@ También se puede jugar sin instalar nada abriendo `index.html` en Chrome o Edge
   coches, árboles y marcas viales), y grano fino de tierra y grava cuando se mira de cerca.
 - **Catenaria como la real**: postes en H con macizo de hormigón, ménsulas con aisladores de
   porcelana, hilo de contacto en zigzag, sustentador con su flecha y péndolas.
+- **Árboles, matas y hierba reales** (modelos CC0 de Poly Haven): se plantan donde la foto aérea
+  muestra copas y prados, con la especie según el entorno (jacarandas y árboles de calle en la
+  ciudad, olivos en los olivares, lentiscos y acebuches en el monte); se mecen con el viento y
+  proyectan la sombra de sus hojas. Hierba y matas en las cunetas cerca del tren.
 - **El tren visto desde fuera** (tecla **V**): unidad de 5 coches con los colores de Ferronda,
   pintura barnizada que refleja el cielo, suciedad de servicio en bajos y techo, morro redondeado, puertas que se abren de verdad, pantógrafo que sube y baja, ruedas que giran,
   faros, pilotos rojos, rótulo de destino y luz interior de noche. Vista «exterior» (arrastre

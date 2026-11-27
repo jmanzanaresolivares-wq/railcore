@@ -3,6 +3,22 @@
  * vistas desde fuera: «exterior» (girar alrededor del tren) y «junto a la vía». */
 (function (RC) {
   var U = RC.core.util, W3 = RC.ui3d.world;
+  var SHADOW_RES = 2048, SHADOW_HALF = 85;   // mapa de sombras de 2048² sobre 170 m × 170 m (≈8 cm por texel)
+  var _dir = new THREE.Vector3(), _f = new THREE.Vector3(), _lx = new THREE.Vector3(), _ly = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+
+  /* Encaja el mapa de sombras del sol alrededor de lo que se ve. El centro se ajusta a la
+   * rejilla de texeles del propio mapa para que las sombras no «tiemblen» al moverse. */
+  function placeShadow(S, sunDir, ahead) {
+    var cam = S.camera;
+    cam.getWorldPosition(_f); cam.getWorldDirection(_dir);
+    _dir.y = 0; if (_dir.lengthSq() < 1e-6) _dir.set(0, 0, -1); _dir.normalize();
+    _f.addScaledVector(_dir, ahead);
+    _lx.crossVectors(_up, sunDir).normalize(); _ly.crossVectors(sunDir, _lx);
+    var texel = 2 * SHADOW_HALF / SHADOW_RES, a = _f.dot(_lx), b = _f.dot(_ly);
+    _f.addScaledVector(_lx, Math.round(a / texel) * texel - a).addScaledVector(_ly, Math.round(b / texel) * texel - b);
+    S.sun.target.position.copy(_f); S.sun.target.updateMatrixWorld();
+    S.sun.position.copy(_f).addScaledVector(sunDir, 700);
+  }
 
   function create(canvas, sim, send, opts) {
     var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
@@ -10,6 +26,9 @@
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.6;
+    // Sombras del sol (mapa de sombras suave que sigue a la cámara)
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     var scene = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera(62, 16 / 9, 0.05, 14000);
@@ -20,6 +39,12 @@
     su.turbidity.value = 5; su.rayleigh.value = 1.6; su.mieCoefficient.value = 0.006; su.mieDirectionalG.value = 0.82;
     var sunDir = new THREE.Vector3();
     var sun = new THREE.DirectionalLight(0xfff1dc, 1.0); scene.add(sun); scene.add(sun.target);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(SHADOW_RES, SHADOW_RES);
+    var shc = sun.shadow.camera;
+    shc.left = -SHADOW_HALF; shc.right = SHADOW_HALF; shc.top = SHADOW_HALF; shc.bottom = -SHADOW_HALF;
+    shc.near = 10; shc.far = 1600; shc.updateProjectionMatrix();
+    sun.shadow.bias = -0.00025; sun.shadow.normalBias = 0.035;
     var hemi = new THREE.HemisphereLight(0xbfd6ff, 0x4a4632, 0.6); scene.add(hemi);
     scene.fog = new THREE.FogExp2(0x9fb0c0, 0.00028);
 
@@ -38,6 +63,7 @@
     var ext = { mode: 0, yaw: 0.62, pitch: 0.14, dist: 30, fov: 34, side: null };
     var S = { renderer: renderer, scene: scene, camera: camera, world: world, cab: cab, rig: rig, sky: sky, sun: sun, hemi: hemi, head: head, look: look, ext: ext, sim: sim, hover: null, active: null, send: send, opts: opts || {} };
     S.traffic = RC.ui3d.traffic ? RC.ui3d.traffic.create(scene, world, sim) : null;
+    if (S.traffic && S.traffic.own) [S.traffic.own, S.traffic.ghost].concat(S.traffic.opp).forEach(function (T) { W3.markShadows(T.group); });
 
     // ---------- Ratón ----------
     var ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tip = document.getElementById('tip3d');
@@ -219,28 +245,40 @@
     }
     var camPos = exterior ? cam.position : S.rig.position;
 
-    // Sol según la hora (Sevilla, finales de noviembre, aprox.)
-    var elevDeg = U.sunElevation(sim.clock);
-    var az = THREE.MathUtils.degToRad(118);                     // este-sureste respecto al trazado
+    // Sol real según la hora (Sevilla, finales de noviembre): x = este, −z = norte
+    var sunP = U.sun(sim.clock), elevDeg = sunP.el;
+    var az = THREE.MathUtils.degToRad(sunP.az);
     var el = THREE.MathUtils.degToRad(elevDeg);
     var sunDir = new THREE.Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), -Math.cos(el) * Math.cos(az));
     S.sky.material.uniforms.sunPosition.value.copy(sunDir);
     S.sky.position.copy(S.rig.position);
     var day = U.clamp((elevDeg + 9) / 13, 0, 1);               // 0 noche … 1 día
     var night = 1 - day;
-    S.sun.position.copy(S.rig.position).addScaledVector(sunDir, 500);
-    S.sun.target.position.copy(S.rig.position);
-    S.sun.intensity = 1.7 * U.clamp((elevDeg + 1) / 10, 0, 1);
+    // Reparto de luz como en un día real: el sol directo manda y el cielo rellena las sombras
+    var LC = S.light || (S.light = { sun: 3.0, sky: 0.22, hemi: 0.08, exposure: 0.9 });
+    S.sun.intensity = LC.sun * U.clamp((elevDeg + 1) / 10, 0, 1);
+    // Sombras sólo con sol: delante de la cabina, o alrededor del tren en las vistas exteriores
+    S.sun.castShadow = elevDeg > 0.5 && S.opts.shadows !== false;
+    if (S.sun.castShadow) placeShadow(S, sunDir, exterior ? (S.ext.mode === 1 ? S.ext.dist : 60) : 48);
+    else { S.sun.position.copy(S.rig.position).addScaledVector(sunDir, 500); S.sun.target.position.copy(S.rig.position); }
     S.sun.color.setHSL(0.08, 0.7, 0.55 + 0.35 * U.clamp(elevDeg / 25, 0, 1));
-    S.hemi.intensity = 0.16 + 0.32 * day;
+    S.hemi.intensity = 0.07 + LC.hemi * day;
     S.scene.fog.color.setRGB(0.05 + 0.55 * day, 0.06 + 0.62 * day, 0.10 + 0.68 * day);
     S.scene.fog.density = 0.00022 + 0.0002 * night;
-    S.renderer.toneMappingExposure = 0.42 + 0.06 * day + 0.3 * night;
+    S.renderer.toneMappingExposure = LC.exposure * (0.62 + 0.38 * day) + 0.25 * night;
     // Mapa de entorno para reflejos (cada cierto tiempo de juego)
     if (Math.abs(sim.clock - S.envAt) > 60 || !S.env) {
       S.envAt = sim.clock;
       var es = S.envSky || (S.envSky = new THREE.Sky());
-      if (!S.envScene) { S.envScene = new THREE.Scene(); es.scale.setScalar(1000); S.envScene.add(es); for (var k in S.sky.material.uniforms) es.material.uniforms[k].value = S.sky.material.uniforms[k].value; }
+      if (!S.envScene) {
+        S.envScene = new THREE.Scene(); es.scale.setScalar(1000); S.envScene.add(es);
+        for (var k in S.sky.material.uniforms) es.material.uniforms[k].value = S.sky.material.uniforms[k].value;
+        // El cielo de los reflejos se atenúa: si no, su luz difusa borra las sombras del sol
+        es.material.uniforms.envScale = { value: 1 };
+        es.material.fragmentShader = 'uniform float envScale;\n' + es.material.fragmentShader.replace('gl_FragColor = vec4( retColor, 1.0 );', 'gl_FragColor = vec4( retColor * envScale, 1.0 );');
+        es.material.needsUpdate = true;
+      }
+      es.material.uniforms.envScale.value = LC.sky;
       es.material.uniforms.sunPosition.value.copy(sunDir);
       if (S.env) S.env.dispose();
       S.pm = S.pm || new THREE.PMREMGenerator(S.renderer);

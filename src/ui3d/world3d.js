@@ -373,7 +373,23 @@
 
     if (line.real && RC.ui3d.realworld) RC.ui3d.realworld.build(W, sim);
     if (RC.ui3d.stations) RC.ui3d.stations.build(W, sim);
+    // Suelos, balasto, carriles y traviesas sólo reciben sombra (proyectarla no se ve y cuesta)
+    [M.ground, M.ballast, M.rail, M.railSide, M.sleeper].forEach(function (m) { if (m) m.userData.noCast = true; });
+    markShadows(root);
     return W;
+  }
+
+  /* Sombras del sol: lo opaco las proyecta y las recibe; lo transparente o aditivo (halos,
+   * charcos de luz) no participa. Un material o un objeto con userData.noCast sólo las recibe. */
+  function markShadows(obj, cast) {
+    obj.traverse(function (o) {
+      if (!o.isMesh) return;
+      var m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (!m) return;
+      var glow = m.blending !== THREE.NormalBlending || (m.transparent && m.depthWrite === false);
+      o.receiveShadow = !glow;
+      o.castShadow = cast !== false && !glow && !m.userData.noCast && !o.userData.noCast;
+    });
   }
 
   /* ---------- Actualización por fotograma ---------- */
@@ -407,5 +423,5 @@
 
   RC.ui3d = RC.ui3d || {};
   RC.ui3d.world = { ribbon: ribbon, build: build, update: update, frame: frame, at: at, place: place, buildAlignment: buildAlignment,
-    textTex: textTex, canvasTex: canvasTex, glowTex: glowTex, val: val, brandHex: brandHex, TRACK2: TRACK2, GAUGE: GAUGE, X0: X0, STEP: STEP };
+    markShadows: markShadows, textTex: textTex, canvasTex: canvasTex, glowTex: glowTex, val: val, brandHex: brandHex, TRACK2: TRACK2, GAUGE: GAUGE, X0: X0, STEP: STEP };
 })(globalThis.RC);

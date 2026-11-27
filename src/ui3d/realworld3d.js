@@ -17,6 +17,7 @@
   /* Cargador de scripts de datos bajo demanda (funciona con file:// y en el .exe). */
   var pending = {};
   function loadScript(src, cb) {
+    if (pending[src] === 'done') { cb(); return; }
     if (pending[src]) { pending[src].push(cb); return; }
     pending[src] = [cb];
     var s = document.createElement('script'); s.src = src; s.async = true;
@@ -98,6 +99,7 @@
     g.computeVertexNormals();
     var mat = new THREE.MeshStandardMaterial({ color: 0xb9b49a, roughness: 1, metalness: 0, side: THREE.DoubleSide });
     var mesh = new THREE.Mesh(g, mat);
+    mesh.receiveShadow = true;
     R.group.add(mesh);
     var tile = { key: key, mesh: mesh, ortho: false, o: o, n: n, res: res };
     // Ortofoto PNOA de la misma tesela
@@ -173,6 +175,7 @@
     g.setIndex(idx);
     g.computeVertexNormals();
     var m = new THREE.Mesh(g, M.buildings);
+    m.castShadow = m.receiveShadow = true;
     R.group.add(m);
     return m;
   }
